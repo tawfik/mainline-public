@@ -73,6 +73,28 @@ ENTRY(ll_set_cpu_coherent)
 	mov	pc, lr
 ENDPROC(ll_set_cpu_coherent)
 
+/*
+ * r0: if r0==0 => physical addres, else virtual address
+ */
+ENTRY(armada_370_xp_disable_snoop_ena)
+	ldr	r0, =(coherency_base)
+	ldr	r0, [r0]
+	/* Enable SnoopEna - Exclusive */
+	mrc	15, 0, r1, cr0, cr0, 5
+	and	r1, r1, #15
+	mov	r2, #(1 << 24)
+	lsl	r2, r2, r1
+
+1:
+	ldrex	r1, [r0]
+	bic	r1, r1, r2
+	strex	r3, r1, [r0]
+	cmp	r3, #0
+	bne 1b
+
+	mov pc, lr
+ENDPROC(armada_370_xp_disable_snoop_ena)
+
 	.align 2
 3:
-	.long	coherency_phys_base - .
+		.long	coherency_phys_base - .
