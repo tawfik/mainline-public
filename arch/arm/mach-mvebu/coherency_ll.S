@@ -25,7 +25,7 @@
 
 	.text
 
-	.macro modify_coherent_reg join_smp
+	.macro modify_coherent_reg join_smp clear_coherency
 	mrc	p15, 0, r1, c1, c0, 0
 	tst	r1, #CR_M @ Check MMU bit enabled
 	bne	1f
@@ -61,11 +61,19 @@
 	sub	r1, r0, #ARMADA_XP_CFB_CFG_REG_OFFSET
 	.endif
 
-	/* Enable coherency on CPU - Atomic */
+	/*
+	 * Enable coherency on CPU - Atomic (or disable depending of
+	 * the clear_coherency flag)
+	 */
 	add	r0, r1, #ARMADA_XP_CFB_CTL_REG_OFFSET
+
 1:
 	ldrex	r2, [r0]
+	.if \clear_coherency == 1
+	bic	r2, r2, r3
+	.else
 	orr	r2, r2, r3
+	.endif
 	strex	r1, r2, [r0]
 	cmp	r1, #0
 	bne 1b
@@ -78,12 +86,17 @@
 
 /*  Enable coherency on CPU */
 ENTRY(ll_set_cpu_coherent)
-	modify_coherent_reg join_smp = 0
+	modify_coherent_reg join_smp = 0, clear_coherency = 0
 ENDPROC(ll_set_cpu_coherent)
+
+/*  Disable coherency on CPU */
+ENTRY(ll_clear_cpu_coherent)
+	modify_coherent_reg join_smp = 0, clear_coherency = 1
+ENDPROC(ll_clear_cpu_coherent)
 
 /* Add CPU to SMP group */
 ENTRY(ll_set_cpu_coherent_and_smp)
-	modify_coherent_reg join_smp = 1
+	modify_coherent_reg join_smp = 1, clear_coherency = 0
 ENDPROC(ll_set_cpu_coherent_and_smp)
 
 	.align 2
