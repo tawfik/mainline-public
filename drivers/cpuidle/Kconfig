@@ -42,6 +42,12 @@ config CPU_IDLE_ZYNQ
 	help
 	  Select this to enable cpuidle on Xilinx Zynq processors.
 
+config CPU_IDLE_ARMADA_370_XP
+	bool "CPU Idle Driver for Armada 370/XP family processors"
+	depends on ARCH_MVEBU
+	help
+	  Select this to enable cpuidle on Armada 370/XP processors.
+
 endif
 
 config ARCH_NEEDS_CPU_IDLE_COUPLED
