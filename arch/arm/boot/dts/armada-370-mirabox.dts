@@ -16,7 +16,7 @@
 	compatible = "globalscale,mirabox", "marvell,armada370", "marvell,armada-370-xp";
 
 	chosen {
-		bootargs = "console=ttyS0,115200 earlyprintk";
+		bootargs = "console=ttyS0,115200 earlyprintk pm_level=idle";
 	};
 
 	memory {
