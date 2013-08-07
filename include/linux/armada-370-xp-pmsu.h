@@ -12,5 +12,7 @@
 #define __ARMADA_370_XP__PMSU_H
 
 void armada_370_xp_pmsu_enable_l2_powerdown_onidle(void);
+void armada_370_xp_pmsu_idle_prepare(bool deepidle);
+void armada_370_xp_pmsu_idle_restore(void);
 
 #endif	/* __ARMADA_370_XP__PMSU_H */
