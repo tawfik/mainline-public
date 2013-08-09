@@ -229,6 +229,11 @@
 				status = "disabled";
 			};
 
+			cpurst@20800 {
+				compatible = "marvell,armada-370-cpu-reset";
+				reg = <0x20800 0x8>;
+			};
+
 			usb@50000 {
 				clocks = <&coreclk 0>;
 			};
