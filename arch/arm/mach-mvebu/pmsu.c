@@ -30,6 +30,9 @@ static void __iomem *pmsu_fabric_base;
 #define PMSU_BOOT_ADDR_REDIRECT_OFFSET(cpu)	((cpu * 0x100) + 0x24)
 #define PMSU_RESET_CTL_OFFSET(cpu)		(cpu * 0x8)
 
+#define L2C_NFABRIC_PM_CTL		    0x4
+#define L2C_NFABRIC_PM_CTL_PWR_DOWN	    BIT(20)
+
 static struct of_device_id of_pmsu_table[] = {
 	{.compatible = "marvell,armada-370-xp-pmsu"},
 	{ /* end of list */ },
@@ -77,5 +80,16 @@ int __init armada_370_xp_pmsu_init(void)
 
 	return 0;
 }
+
+void armada_370_xp_pmsu_enable_l2_powerdown_onidle(void)
+{
+	int reg;
+
+	/* Enable L2 & Fabric powerdown in Deep-Idle mode - Fabric */
+	reg = readl(pmsu_fabric_base + L2C_NFABRIC_PM_CTL);
+	reg |= L2C_NFABRIC_PM_CTL_PWR_DOWN;
+	writel(reg, pmsu_fabric_base + L2C_NFABRIC_PM_CTL);
+}
+EXPORT_SYMBOL_GPL(armada_370_xp_pmsu_enable_l2_powerdown_onidle);
 
 early_initcall(armada_370_xp_pmsu_init);
