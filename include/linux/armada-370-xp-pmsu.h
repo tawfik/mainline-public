@@ -14,5 +14,6 @@
 void armada_370_xp_pmsu_enable_l2_powerdown_onidle(void);
 void armada_370_xp_pmsu_idle_prepare(bool deepidle);
 void armada_370_xp_pmsu_idle_restore(void);
+void armada_370_xp_pmsu_set_start_addr(void *start_addr, int hw_cpu);
 
 #endif	/* __ARMADA_370_XP__PMSU_H */
