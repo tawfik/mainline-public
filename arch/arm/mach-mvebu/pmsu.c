@@ -25,6 +25,7 @@
 
 static void __iomem *pmsu_mp_base;
 static void __iomem *pmsu_reset_base;
+static void __iomem *pmsu_fabric_base;
 
 #define PMSU_BOOT_ADDR_REDIRECT_OFFSET(cpu)	((cpu * 0x100) + 0x24)
 #define PMSU_RESET_CTL_OFFSET(cpu)		(cpu * 0x8)
@@ -66,7 +67,11 @@ int __init armada_370_xp_pmsu_init(void)
 	if (np) {
 		pr_info("Initializing Power Management Service Unit\n");
 		pmsu_mp_base = of_iomap(np, 0);
+		WARN_ON(!pmsu_mp_base);
 		pmsu_reset_base = of_iomap(np, 1);
+		WARN_ON(!pmsu_reset_base);
+		pmsu_fabric_base = of_iomap(np, 2);
+		WARN_ON(!pmsu_fabric_base);
 		of_node_put(np);
 	}
 
