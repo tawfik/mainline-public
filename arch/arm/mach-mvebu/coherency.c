@@ -43,17 +43,17 @@ static struct of_device_id of_coherency_table[] = {
 };
 
 /* Function defined in coherency_ll.S */
-int ll_set_cpu_coherent(bool use_virt_addr, unsigned int hw_cpu_id);
+int ll_set_cpu_coherent(bool use_virt_addr);
 
-int set_cpu_coherent(unsigned int hw_cpu_id, int smp_group_id)
+int set_cpu_coherent(int smp_group_id)
 {
 	if (!coherency_base) {
-		pr_warn("Can't make CPU %d cache coherent.\n", hw_cpu_id);
+		pr_warn("Can't make current CPU cache coherent.\n");
 		pr_warn("Coherency fabric is not initialized\n");
 		return 1;
 	}
 
-	return ll_set_cpu_coherent(true, hw_cpu_id);
+	return ll_set_cpu_coherent(true);
 }
 
 static inline void mvebu_hwcc_sync_io_barrier(void)
@@ -139,7 +139,7 @@ int __init coherency_init(void)
 		sync_cache_w(&coherency_phys_base);
 		coherency_base = of_iomap(np, 0);
 		coherency_cpu_base = of_iomap(np, 1);
-		set_cpu_coherent(cpu_logical_map(smp_processor_id()), 0);
+		set_cpu_coherent(0);
 		of_node_put(np);
 	}
 
