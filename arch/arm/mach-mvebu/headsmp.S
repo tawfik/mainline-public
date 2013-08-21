@@ -30,6 +30,9 @@ ENTRY(armada_xp_secondary_startup)
 	/* Use physical addrss */
 	mov	r0, #0
 
+	/* Add CPU to the SMP group*/
+	mov	r1, #1
+
 	/* Add CPU to coherency fabric */
 	bl	ll_set_cpu_coherent
 	b	secondary_startup
