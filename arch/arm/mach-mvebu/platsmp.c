@@ -116,7 +116,7 @@ void __init armada_xp_smp_prepare_cpus(unsigned int max_cpus)
 {
 	set_secondary_cpus_clock();
 	flush_cache_all();
-	set_cpu_coherent(0);
+	set_cpu_coherent();
 	mvebu_mbus_add_window("bootrom", 0xfff00000, SZ_1M);
 }
 
