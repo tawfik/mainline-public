@@ -43,7 +43,7 @@ static struct of_device_id of_coherency_table[] = {
 };
 
 /* Function defined in coherency_ll.S */
-int ll_set_cpu_coherent(bool use_virt_addr);
+int ll_set_cpu_coherent(bool use_virt_addr, bool use_smp_group);
 
 int set_cpu_coherent(void)
 {
@@ -53,7 +53,7 @@ int set_cpu_coherent(void)
 		return 1;
 	}
 
-	return ll_set_cpu_coherent(true);
+	return ll_set_cpu_coherent(true, true);
 }
 
 static inline void mvebu_hwcc_sync_io_barrier(void)

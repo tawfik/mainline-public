@@ -22,7 +22,8 @@
 
 	.text
 /*
- * r0: if r0==0 => physical addres, else virtual address
+ * r0: Use virtual address if r0 != 0, else physical address
+ * r1: Add CPU to the SMP group if r1 != 0
  */
 ENTRY(ll_set_cpu_coherent)
 	cmp	r0, #0
@@ -38,26 +39,31 @@ ENTRY(ll_set_cpu_coherent)
 	ldr	r0, [r0]
 2:
 	/* Create bit by cpu index */
-	mrc	15, 0, r1, cr0, cr0, 5
-	and	r1, r1, #15
+	mrc	15, 0, r3, cr0, cr0, 5
+	and	r3, r3, #15
 	mov	r2, #(1 << 24)
-	lsl	r1, r2, r1
+	lsl	r3, r2, r3
+
+	/* If r1=!0 then just enable the snooping */
+	cmp	r1, #0
+	beq	2f
 
 	/* Add CPU to SMP group - Atomic */
-	add	r3, r0, #ARMADA_XP_CFB_CTL_REG_OFFSET
+	add	r1, r0, #ARMADA_XP_CFB_CTL_REG_OFFSET
 1:
-	ldrex	r2, [r3]
-	orr	r2, r2, r1
-	strex 	r0, r2, [r3]
+	ldrex	r2, [r1]
+	orr	r2, r2, r3
+	strex 	r0, r2, [r1]
 	cmp	r0, #0
 	bne 1b
 
+2:
 	/* Enable coherency on CPU - Atomic */
-	add	r3, r3, #ARMADA_XP_CFB_CFG_REG_OFFSET
+	add	r1, r1, #ARMADA_XP_CFB_CFG_REG_OFFSET
 1:
-	ldrex	r2, [r3]
-	orr	r2, r2, r1
-	strex	r0, r2, [r3]
+	ldrex	r2, [r1]
+	orr	r2, r2, r3
+	strex	r0, r2, [r1]
 	cmp	r0, #0
 	bne 1b
 
