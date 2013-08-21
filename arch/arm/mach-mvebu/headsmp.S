@@ -27,10 +27,8 @@
  * startup
  */
 ENTRY(armada_xp_secondary_startup)
-	/* Get coherency fabric base physical address */
-	adr	r0, 1f
-	ldr	r1, [r0]
-	ldr	r0, [r0, r1]
+	/* Use physical addrss */
+	mov	r0, #0
 
 	/* Read CPU id */
 	mrc     p15, 0, r1, c0, c0, 5
@@ -41,7 +39,3 @@ ENTRY(armada_xp_secondary_startup)
 	b	secondary_startup
 
 ENDPROC(armada_xp_secondary_startup)
-
-	.align 2
-1:
-	.long	coherency_phys_base - .

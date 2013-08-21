@@ -29,7 +29,7 @@
 #include "armada-370-xp.h"
 
 unsigned long coherency_phys_base;
-static void __iomem *coherency_base;
+void __iomem *coherency_base;
 static void __iomem *coherency_cpu_base;
 
 /* Coherency fabric registers */
@@ -43,7 +43,7 @@ static struct of_device_id of_coherency_table[] = {
 };
 
 /* Function defined in coherency_ll.S */
-int ll_set_cpu_coherent(void __iomem *base_addr, unsigned int hw_cpu_id);
+int ll_set_cpu_coherent(bool use_virt_addr, unsigned int hw_cpu_id);
 
 int set_cpu_coherent(unsigned int hw_cpu_id, int smp_group_id)
 {
@@ -53,7 +53,7 @@ int set_cpu_coherent(unsigned int hw_cpu_id, int smp_group_id)
 		return 1;
 	}
 
-	return ll_set_cpu_coherent(coherency_base, hw_cpu_id);
+	return ll_set_cpu_coherent(true, hw_cpu_id);
 }
 
 static inline void mvebu_hwcc_sync_io_barrier(void)
