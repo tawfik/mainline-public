@@ -196,6 +196,11 @@
 				clocks = <&coreclk 2>;
 			};
 
+			watchdog@20300 {
+				compatible = "marvell,armada-370-wdt";
+				clocks = <&coreclk 2>;
+			};
+
 			usb@50000 {
 				clocks = <&coreclk 0>;
 			};
