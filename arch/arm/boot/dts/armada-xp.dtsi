@@ -69,7 +69,7 @@
 			};
 
 			timer@20300 {
-				compatible = "marvell,armada-xp-timer";
+				marvell,timer-25Mhz;
 			};
 
 			coreclk: mvebu-sar@18230 {
