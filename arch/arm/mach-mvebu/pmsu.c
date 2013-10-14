@@ -21,6 +21,7 @@
 #include <linux/init.h>
 #include <linux/of_address.h>
 #include <linux/io.h>
+#include <linux/platform_device.h>
 #include <linux/smp.h>
 #include <asm/cacheflush.h>
 #include <asm/cp15.h>
@@ -64,6 +65,10 @@ static void __iomem *pmsu_reset_base;
 
 extern void ll_disable_coherency(void);
 extern void ll_enable_coherency(void);
+
+static struct platform_device armada_xp_cpuidle_device = {
+	.name = "cpuidle-armada-370-xp",
+};
 
 static struct of_device_id of_pmsu_table[] = {
 	{
@@ -285,4 +290,21 @@ static struct notifier_block armada_370_xp_cpu_pm_notifier = {
 	.notifier_call = armada_370_xp_cpu_pm_notify,
 };
 
+int __init armada_370_xp_cpu_pm_init(void)
+{
+	if (!((of_find_compatible_node(NULL, NULL, "marvell,armada-370-xp-pmsu") ||
+				of_find_compatible_node(NULL, NULL, "marvell,armada-370-pmsu"))
+			&& of_find_compatible_node(NULL, NULL, "marvell,coherency-fabric")
+			&& of_machine_is_compatible("marvell,armadaxp")))
+		return 0;
+
+	armada_370_xp_pmsu_enable_l2_powerdown_onidle();
+	armada_xp_cpuidle_device.dev.platform_data = armada_370_xp_cpu_suspend;
+	platform_device_register(&armada_xp_cpuidle_device);
+	cpu_pm_register_notifier(&armada_370_xp_cpu_pm_notifier);
+
+	return 0;
+}
+
+arch_initcall(armada_370_xp_cpu_pm_init);
 early_initcall(armada_370_xp_pmsu_init);
