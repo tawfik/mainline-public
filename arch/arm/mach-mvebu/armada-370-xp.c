@@ -30,6 +30,11 @@
 #include "common.h"
 #include "coherency.h"
 #include "mvebu-soc-id.h"
+#include "pmsu.h"
+
+static struct platform_device armada_xp_cpuidle_device = {
+	.name = "cpuidle-armada-370-xp",
+};
 
 static void __init armada_370_xp_map_io(void)
 {
@@ -80,6 +85,13 @@ static void __init armada_370_xp_dt_init(void)
 	if (of_machine_is_compatible("plathome,openblocks-ax3-4"))
 		i2c_quirk();
 	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
+	if (of_find_compatible_node(NULL, NULL, "marvell,armada-370-xp-pmsu")
+		&& of_find_compatible_node(NULL, NULL, "marvell,coherency-fabric")
+		&& of_machine_is_compatible("marvell,armadaxp")) {
+		armada_370_xp_pmsu_enable_l2_powerdown_onidle();
+		armada_370_xp_cpu_pm_init();
+		platform_device_register(&armada_xp_cpuidle_device);
+	}
 }
 
 static const char * const armada_370_xp_dt_compat[] = {
