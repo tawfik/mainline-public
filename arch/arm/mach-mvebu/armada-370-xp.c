@@ -29,6 +29,10 @@
 #include "common.h"
 #include "coherency.h"
 
+static struct platform_device armada_xp_cpuidle_device = {
+	.name = "cpuidle-armada-370-xp",
+};
+
 static void __init armada_370_xp_map_io(void)
 {
 	debug_ll_io_init();
@@ -48,6 +52,8 @@ static void __init armada_370_xp_timer_and_clk_init(void)
 static void __init armada_370_xp_dt_init(void)
 {
 	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
+	if (of_machine_is_compatible("marvell,armadaxp"))
+		platform_device_register(&armada_xp_cpuidle_device);
 }
 
 static const char * const armada_370_xp_dt_compat[] = {
