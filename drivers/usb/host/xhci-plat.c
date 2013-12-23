@@ -152,6 +152,10 @@ static int xhci_plat_probe(struct platform_device *pdev)
 					"marvell,armada-380-xhci"))
 		xhci_mvebu_mbus_init_quirk(pdev);
 
+	if (of_device_is_compatible(pdev->dev.of_node,
+					"marvell,armada-375-xhci"))
+		xhci_mvebu_mbus_init_quirk(pdev);
+
 	/* Initialize dma_mask and coherent_dma_mask to 32-bits */
 	ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
 	if (ret)
@@ -288,6 +292,7 @@ static const struct of_device_id usb_xhci_of_match[] = {
 	{ .compatible = "generic-xhci" },
 	{ .compatible = "xhci-platform" },
 	{ .compatible = "marvell,armada-380-xhci"},
+	{ .compatible = "marvell,armada-375-xhci"},
 	{ },
 };
 MODULE_DEVICE_TABLE(of, usb_xhci_of_match);
