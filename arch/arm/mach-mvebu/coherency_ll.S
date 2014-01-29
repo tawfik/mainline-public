@@ -52,13 +52,16 @@
 	.if \join_smp == 1
 	/* Add CPU to SMP group - Atomic (only if the flag is set) */
 	add	r0, r1, #ARMADA_XP_CFB_CFG_REG_OFFSET
+#ifdef pure_smp_idle
 1:
 	ldrex	r2, [r0]
 	orr	r2, r2, r3
 	strex 	r1, r2, [r0]
 	cmp	r1, #0
 	bne 1b
-
+#else
+	orr	r2, r2, r3
+#endif
 	/* get back to the base register */
 	sub	r1, r0, #ARMADA_XP_CFB_CFG_REG_OFFSET
 	.endif
@@ -68,7 +71,7 @@
 	 * the clear_coherency flag)
 	 */
 	add	r0, r1, #ARMADA_XP_CFB_CTL_REG_OFFSET
-
+#ifdef pure_smp_idle
 1:
 	ldrex	r2, [r0]
 	.if \clear_coherency == 1
@@ -79,7 +82,13 @@
 	strex	r1, r2, [r0]
 	cmp	r1, #0
 	bne 1b
-
+#else
+	.if \clear_coherency == 1
+	bic	r2, r2, r3
+	.else
+	orr	r2, r2, r3
+	.endif
+#endif
 	dsb
 
 	mov	r0, #0

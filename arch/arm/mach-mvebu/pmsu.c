@@ -125,6 +125,8 @@ void armada_370_xp_pmsu_enable_l2_powerdown_onidle(void)
 	reg |= L2C_NFABRIC_PM_CTL_PWR_DOWN;
 	writel(reg, pmsu_fabric_base + L2C_NFABRIC_PM_CTL);
 }
+extern void ll_clear_cpu_coherent(void);
+extern void ll_set_cpu_coherent(void);
 
 /* No locking is needed because we only access per-CPU registers */
 void armada_370_xp_pmsu_idle_prepare(bool deepidle)
@@ -158,10 +160,17 @@ void armada_370_xp_pmsu_idle_prepare(bool deepidle)
 	reg |= PMSU_CONTROL_AND_CONFIG_PWDDN_REQ;
 	writel(reg, pmsu_mp_base + PMSU_CONTROL_AND_CONFIG(hw_cpu));
 
-	/* Disable snoop disable by HW - SW is taking care of it */
-	reg = readl(pmsu_mp_base + PMSU_CPU_POWER_DOWN_CONTROL(hw_cpu));
-	reg |= PMSU_CPU_POWER_DOWN_DIS_SNP_Q_SKIP;
-	writel(reg, pmsu_mp_base + PMSU_CPU_POWER_DOWN_CONTROL(hw_cpu));
+	/*
+	 * Disable snoop disable by HW - SW is taking care of it for
+	 * the Armada XP SoCs
+	 */
+	if (of_machine_is_compatible("marvell,armadaxp")) {
+		reg = readl(pmsu_mp_base + PMSU_CPU_POWER_DOWN_CONTROL(hw_cpu));
+		reg |= PMSU_CPU_POWER_DOWN_DIS_SNP_Q_SKIP;
+		writel(reg, pmsu_mp_base + PMSU_CPU_POWER_DOWN_CONTROL(hw_cpu));
+	} else {
+		ll_clear_cpu_coherent();
+	}
 }
 
 /* No locking is needed because we only access per-CPU registers */
@@ -177,6 +186,9 @@ static noinline void armada_370_xp_pmsu_idle_restore(void)
 	reg = readl(pmsu_mp_base + PMSU_CONTROL_AND_CONFIG(hw_cpu));
 	reg &= ~PMSU_CONTROL_AND_CONFIG_L2_PWDDN;
 	writel(reg, pmsu_mp_base + PMSU_CONTROL_AND_CONFIG(hw_cpu));
+
+
+	ll_set_cpu_coherent();
 
 	/* cancel Enable wakeup events and mask interrupts */
 	reg = readl(pmsu_mp_base + PMSU_STATUS_AND_MASK(hw_cpu));

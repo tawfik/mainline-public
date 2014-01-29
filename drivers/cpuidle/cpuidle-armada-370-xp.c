@@ -63,14 +63,15 @@ noinline static int armada_370_xp_cpu_suspend(unsigned long deepidle)
 
 	v7_exit_coherency_flush(all);
 
-	ll_clear_cpu_coherent();
+//	ll_clear_cpu_coherent();
 
-	dsb();
+//	dsb();
 
 	wfi();
 
-	ll_set_cpu_coherent();
+//	ll_set_cpu_coherent();
 
+	/* Re-enable C-bit if needed */
 	asm volatile(
 	"mrc	p15, 0, %0, c1, c0, 0 \n\t"
 	"tst	%0, #(1 << 2) \n\t"
@@ -89,7 +90,12 @@ static int armada_370_xp_enter_idle(struct cpuidle_device *dev,
 	bool deepidle = false;
 	cpu_pm_enter();
 
-	if (drv->states[index].flags & ARMADA_370_XP_FLAG_DEEP_IDLE)
+	/*
+	 * Armada 370 has single power domain so the L2 power down
+	 * request bit must be set in any case
+	 */
+	if (drv->states[index].flags & ARMADA_370_XP_FLAG_DEEP_IDLE ||
+		of_machine_is_compatible("marvell,armada370"))
 		deepidle = true;
 
 	cpu_suspend(deepidle, armada_370_xp_cpu_suspend);
