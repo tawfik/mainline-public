@@ -199,6 +199,11 @@
 				interrupts = <37>, <38>, <39>, <40>, <5>, <6>;
 			};
 
+			armada-370-xp-pmsu@22000 {
+				compatible = "marvell,armada-370-xp-pmsu";
+				reg = <0x22100 0x400>, <0x20800 0x20>, <0x22000 0x24>;
+			};
+
 			usb@50000 {
 				compatible = "marvell,orion-ehci";
 				reg = <0x50000 0x500>;
