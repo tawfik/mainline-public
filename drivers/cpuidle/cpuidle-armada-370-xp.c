@@ -26,6 +26,30 @@
 #include <linux/platform_device.h>
 #include <asm/cp15.h>
 #include <asm/cacheflush.h>
+#include <linux/mbus.h>
+
+
+#define CRYPT0_ENG_ID  41
+#define CRYPT0_ENG_ATTR        0x1
+#define SRAM_PHYS_BASE 0xFFFF0000
+
+extern void* armada370_deep_idle_exit_end;
+extern void* armada370_deep_idle_exit_start;
+
+void a370_cpuidle_enable_wa(void)
+{
+	u32 code_len;
+	void __iomem *sram_virt_base;
+
+	mvebu_mbus_add_window_by_id(CRYPT0_ENG_ID, CRYPT0_ENG_ATTR,
+				SRAM_PHYS_BASE, SZ_64K);
+	sram_virt_base = ioremap(SRAM_PHYS_BASE, SZ_64K);
+
+	code_len = 4 * (&armada370_deep_idle_exit_end
+			- &armada370_deep_idle_exit_start);
+
+	memcpy(sram_virt_base, &armada370_deep_idle_exit_start, code_len);
+}
 
 #define ARMADA_370_XP_MAX_STATES	3
 #define ARMADA_370_XP_FLAG_DEEP_IDLE	0x10000
@@ -102,6 +126,7 @@ static struct cpuidle_driver armada_370_xp_idle_driver = {
 
 static int armada_370_xp_cpuidle_probe(struct platform_device *pdev)
 {
+	a370_cpuidle_enable_wa();
 	return cpuidle_register(&armada_370_xp_idle_driver, NULL);
 }
 

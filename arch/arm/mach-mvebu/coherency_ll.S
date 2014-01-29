@@ -20,6 +20,8 @@
 #define ARMADA_XP_CFB_CTL_REG_OFFSET 0x0
 #define ARMADA_XP_CFB_CFG_REG_OFFSET 0x4
 
+#define PMSU_BOOT_ADDR_REDIRECT_OFFSET 0x124
+
 #include <asm/assembler.h>
 #include <asm/cp15.h>
 
@@ -84,6 +86,21 @@
 	mov	pc, lr
 	.endm
 
+.global armada370_deep_idle_exit_start
+.global armada370_deep_idle_exit_end
+
+ENTRY(armada370_deep_idle_exit_start)
+armada370_deep_idle_exit_start:
+	/* use physical address of the coherency register */
+	adr	r1, 4f
+	ldr	r3, [r1]
+	ldr	r1, [r1, r3]
+	add	r0, r1, #PMSU_BOOT_ADDR_REDIRECT_OFFSET
+	ldr     r1, [r0]
+	mov     pc, r1
+armada370_deep_idle_exit_end:
+ENDPROC(armada370_deep_idle_exit_end)
+
 /*  Enable coherency on CPU */
 ENTRY(ll_set_cpu_coherent)
 	modify_coherent_reg join_smp = 0, clear_coherency = 0
@@ -102,3 +119,5 @@ ENDPROC(ll_set_cpu_coherent_and_smp)
 	.align 2
 3:
 	.long	coherency_phys_base - .
+4:
+	.long	pmsu_mp_base - .

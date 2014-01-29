@@ -25,7 +25,7 @@
 #include <asm/smp_plat.h>
 #include "pmsu.h"
 
-static void __iomem *pmsu_mp_base;
+void __iomem *pmsu_mp_base;
 static void __iomem *pmsu_reset_base;
 static void __iomem *pmsu_fabric_base;
 
