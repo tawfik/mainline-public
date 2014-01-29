@@ -28,6 +28,7 @@
 #include "armada-370-xp.h"
 #include "common.h"
 #include "coherency.h"
+#include "mvebu-soc-id.h"
 #include "pmsu.h"
 
 static struct platform_device armada_xp_cpuidle_device = {
@@ -37,6 +38,32 @@ static struct platform_device armada_xp_cpuidle_device = {
 static void __init armada_370_xp_map_io(void)
 {
 	debug_ll_io_init();
+}
+
+static void cpuidle_init(void)
+{
+	/* First check that all the ressource needed are availabale */
+	if (!of_find_compatible_node(NULL, NULL, "marvell,armada-370-xp-pmsu")
+		|| !of_find_compatible_node(NULL, NULL, "marvell,coherency-fabric"))
+		return;
+
+	/* CPU idle on Armada XP A0 is not stable enough */
+	if (of_machine_is_compatible("marvell,armadaxp")) {
+		u32 dev, rev;
+		if (mvebu_get_soc_id(&rev, &dev) != 0) {
+			pr_warn("Didn't managed to get the revision ID of the Armada XP SoC: disable cpu idle driver");
+			return;
+		}
+		if (dev == MV78XX0_A0_REV) {
+			pr_warn("Armada XP revA0 doesn't support cpu idle: disable it");
+			return;
+		}
+	} else if (!of_machine_is_compatible("marvell,armada370"))
+		return;
+
+	armada_370_xp_pmsu_enable_l2_powerdown_onidle();
+	armada_370_xp_cpu_pm_init();
+	platform_device_register(&armada_xp_cpuidle_device);
 }
 
 static void __init armada_370_xp_timer_and_clk_init(void)
@@ -53,13 +80,7 @@ static void __init armada_370_xp_timer_and_clk_init(void)
 static void __init armada_370_xp_dt_init(void)
 {
 	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
-	if (of_find_compatible_node(NULL, NULL, "marvell,armada-370-xp-pmsu")
-		&& of_find_compatible_node(NULL, NULL, "marvell,coherency-fabric")
-		&& of_machine_is_compatible("marvell,armadaxp")) {
-		armada_370_xp_pmsu_enable_l2_powerdown_onidle();
-		armada_370_xp_cpu_pm_init();
-		platform_device_register(&armada_xp_cpuidle_device);
-	}
+	cpuidle_init();
 }
 
 static const char * const armada_370_xp_dt_compat[] = {
