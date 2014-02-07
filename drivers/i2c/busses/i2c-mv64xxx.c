@@ -461,8 +461,15 @@ mv64xxx_i2c_do_action(struct mv64xxx_i2c_data *drv_data)
 	case MV64XXX_I2C_ACTION_OFFLOAD_SEND_START:
 		if (!mv64xxx_i2c_offload_msg(drv_data))
 			break;
-		else
+		else {
 			drv_data->action = MV64XXX_I2C_ACTION_SEND_START;
+			/*
+			 * Switch to the standard path, so we finally need to
+			 * prepare the io that have not been done in
+			 * mv64xxx_i2c_execute_msg
+			 */
+			mv64xxx_i2c_prepare_for_io(drv_data, drv_data->msgs);
+		}
 		/* FALLTHRU */
 	case MV64XXX_I2C_ACTION_SEND_START:
 		writel(drv_data->cntl_bits | MV64XXX_I2C_REG_CONTROL_START,
