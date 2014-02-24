@@ -77,6 +77,10 @@
 					reg = <1>;
 				};
 			};
+
+			usb3@f0000 {
+				status = "okay";
+			};
 		};
 
 		pcie-controller {
