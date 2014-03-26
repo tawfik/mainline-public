@@ -1,0 +1,17 @@
+Marvell Armada CPU reset controller
+===================================
+
+Required properties:
+
+- compatible: Should be "marvell,armada-<chip>-cpu-reset". Supported
+  values are:
+    marvell,armada-370-cpu-reset
+    marvell,armada-xp-cpu-reset
+
+- reg: should be register base and length as documented in the
+  datasheet for the CPU reset registers
+
+cpurst: cpurst@20800 {
+       compatible = "marvell,armada-xp-cpu-reset";
+       reg = <0x20800 0x20>;
+};
