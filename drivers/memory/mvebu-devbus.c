@@ -2,7 +2,7 @@
  * Marvell EBU SoC Device Bus Controller
  * (memory controller for NOR/NAND/SRAM/FPGA devices)
  *
- * Copyright (C) 2013 Marvell
+ * Copyright (C) 2013-2014 Marvell
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -43,6 +43,22 @@
 
 #define ARMADA_READ_PARAM_OFFSET	0x0
 #define ARMADA_WRITE_PARAM_OFFSET	0x4
+
+#define ORION_RESERVED			(0x2 << 30)
+#define ORION_BADR_SKEW_BIT		28
+#define ORION_WR_HIGH_EXT_BIT		27
+#define ORION_WR_LOW_EXT_BIT		26
+#define ORION_ALE_WR_EXT_BIT		25
+#define ORION_ACC_NEXT_EXT_BIT		24
+#define ORION_ACC_FIRST_EXT_BIT		23
+#define ORION_TURN_OFF_EXT_BIT		22
+#define ORION_DEV_WIDTH_BIT		20
+#define ORION_WR_HIGH_BIT		17
+#define ORION_WR_LOW_BIT		14
+#define ORION_ALE_WR_BIT		11
+#define ORION_ACC_NEXT_BIT		7
+#define ORION_ACC_FIRST_BIT		3
+#define ORION_TURN_OFF_BIT		0
 
 struct devbus_read_params {
 	u32 bus_width;
@@ -96,7 +112,6 @@ static int devbus_get_timing_params(struct devbus *devbus,
 {
 	int err;
 
-	/* Get read timings */
 	err = of_property_read_u32(node, "devbus,bus-width", &r->bus_width);
 	if (err < 0) {
 		dev_err(devbus->dev,
@@ -131,24 +146,25 @@ static int devbus_get_timing_params(struct devbus *devbus,
 	if (err < 0)
 		return err;
 
-	err = get_timing_param_ps(devbus, node, "devbus,rd-setup-ps",
-				 &r->rd_setup);
-	if (err < 0)
-		return err;
+	if (of_device_is_compatible(devbus->dev->of_node, "marvell,mvebu-devbus")) {
+		err = get_timing_param_ps(devbus, node, "devbus,rd-setup-ps",
+					  &r->rd_setup);
+		if (err < 0)
+			return err;
 
-	err = get_timing_param_ps(devbus, node, "devbus,rd-hold-ps",
-				 &r->rd_hold);
-	if (err < 0)
-		return err;
+		err = get_timing_param_ps(devbus, node, "devbus,rd-hold-ps",
+					  &r->rd_hold);
+		if (err < 0)
+			return err;
 
-	/* Get write timings */
-	err = of_property_read_u32(node, "devbus,sync-enable",
-				  &w->sync_enable);
-	if (err < 0) {
-		dev_err(devbus->dev,
-			"%s has no 'devbus,sync-enable' property\n",
-			node->full_name);
-		return err;
+		err = of_property_read_u32(node, "devbus,sync-enable",
+					   &w->sync_enable);
+		if (err < 0) {
+			dev_err(devbus->dev,
+				"%s has no 'devbus,sync-enable' property\n",
+				node->full_name);
+			return err;
+		}
 	}
 
 	err = get_timing_param_ps(devbus, node, "devbus,ale-wr-ps",
@@ -167,6 +183,39 @@ static int devbus_get_timing_params(struct devbus *devbus,
 		return err;
 
 	return 0;
+}
+
+static void devbus_orion_set_timing_params(struct devbus *devbus,
+					  struct device_node *node,
+					  struct devbus_read_params *r,
+					  struct devbus_write_params *w)
+{
+	u32 value;
+
+	/*
+	 * The hardware designers found it would be a good idea to
+	 * split most of the values in the register into two fields:
+	 * one containing all the low-order bits, and another one
+	 * containing just the high-order bit. For all of those
+	 * fields, we have to split the value into these two parts.
+	 */
+	value = (r->turn_off   & 0x7) << ORION_TURN_OFF_BIT  |
+		(r->acc_first  & 0xF) << ORION_ACC_FIRST_BIT |
+		(r->acc_next   & 0xF) << ORION_ACC_NEXT_BIT  |
+		(w->ale_wr     & 0x7) << ORION_ALE_WR_BIT    |
+		(w->wr_low     & 0x7) << ORION_WR_LOW_BIT    |
+		(w->wr_high    & 0x7) << ORION_WR_HIGH_BIT   |
+		r->bus_width          << ORION_DEV_WIDTH_BIT |
+		((r->turn_off  & 0x8)  ? BIT(ORION_TURN_OFF_EXT_BIT)  : 0) |
+		((r->acc_first & 0x10) ? BIT(ORION_ACC_FIRST_EXT_BIT) : 0) |
+		((r->acc_next  & 0x10) ? BIT(ORION_ACC_NEXT_EXT_BIT)  : 0) |
+		((w->ale_wr    & 0x8)  ? BIT(ORION_ALE_WR_EXT_BIT)    : 0) |
+		((w->wr_low    & 0x8)  ? BIT(ORION_WR_LOW_EXT_BIT)    : 0) |
+		((w->wr_high   & 0x8)  ? BIT(ORION_WR_HIGH_EXT_BIT)   : 0) |
+		(r->badr_skew << ORION_BADR_SKEW_BIT) |
+		ORION_RESERVED;
+
+	writel(value, devbus->base);
 }
 
 static void devbus_armada_set_timing_params(struct devbus *devbus,
@@ -248,7 +297,10 @@ static int mvebu_devbus_probe(struct platform_device *pdev)
 		return err;
 
 	/* Set the new timing parameters */
-	devbus_armada_set_timing_params(devbus, node, &r, &w);
+	if (of_device_is_compatible(node, "marvell,orion-devbus"))
+		devbus_orion_set_timing_params(devbus, node, &r, &w);
+	else
+		devbus_armada_set_timing_params(devbus, node, &r, &w);
 
 	/*
 	 * We need to create a child device explicitly from here to
@@ -264,6 +316,7 @@ static int mvebu_devbus_probe(struct platform_device *pdev)
 
 static const struct of_device_id mvebu_devbus_of_match[] = {
 	{ .compatible = "marvell,mvebu-devbus" },
+	{ .compatible = "marvell,orion-devbus" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, mvebu_devbus_of_match);
