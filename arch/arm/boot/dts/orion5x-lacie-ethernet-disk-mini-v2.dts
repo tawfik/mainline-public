@@ -73,6 +73,10 @@
 				status = "okay";
 			};
 
+			ehci@50000 {
+				status = "okay";
+			};
+
 			sata@80000 {
 				pinctrl-0 = <&pmx_sata0 &pmx_sata1>;
 				pinctrl-names = "default";
