@@ -10,6 +10,7 @@
 
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
+#include <dt-bindings/interrupt-controller/irq.h>
 #include "orion5x-mv88f5182.dtsi"
 
 / {
@@ -51,6 +52,19 @@
 				pmx_power_button: pmx-power-button {
 					marvell,pins = "mpp18";
 					marvell,function = "gpio";
+				};
+			};
+
+			i2c@11000 {
+				status = "okay";
+				clock-frequency = <100000>;
+				#address-cells = <1>;
+
+				rtc@32 {
+					compatible = "rs5c372a";
+					reg = <0x32>;
+					interrupt-parent = <&gpio0>;
+					interrupts = <3 IRQ_TYPE_LEVEL_LOW>;
 				};
 			};
 
