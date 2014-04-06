@@ -17,6 +17,7 @@
 #include <linux/cpu.h>
 #include <linux/mbus.h>
 #include <linux/clk-provider.h>
+#include <linux/clocksource.h>
 #include <asm/system_misc.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
@@ -36,15 +37,10 @@ static struct of_dev_auxdata orion5x_auxdata_lookup[] __initdata = {
 	{},
 };
 
-static void orion5x_dt_init_early(void)
-{
-	orion_time_set_base(TIMER_VIRT_BASE);
-}
-
 static void orion5x_dt_init_time(void)
 {
-	orion5x_timer_init();
 	of_clk_init(NULL);
+	clocksource_of_init();
 	BUG_ON(mvebu_mbus_dt_init());
 }
 
@@ -85,8 +81,6 @@ static const char *orion5x_dt_compat[] = {
 DT_MACHINE_START(ORION5X_DT, "Marvell Orion5x (Flattened Device Tree)")
 	/* Maintainer: Thomas Petazzoni <thomas.petazzoni@free-electrons.com> */
 	.map_io		= orion5x_map_io,
-	.init_early	= orion5x_dt_init_early,
-	.init_irq	= orion_dt_init_irq,
 	.init_time	= orion5x_dt_init_time,
 	.init_machine	= orion5x_dt_init,
 	.restart	= orion5x_restart,
