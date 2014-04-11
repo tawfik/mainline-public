@@ -21,6 +21,7 @@
 #include <linux/of_gpio.h>
 #include <linux/of_pci.h>
 #include <linux/of_platform.h>
+#include <linux/clk-provider.h>
 
 /*
  * PCIe unit register offsets.
@@ -162,6 +163,14 @@ static void mvebu_pcie_set_local_bus_nr(struct mvebu_pcie_port *port, int nr)
 	mvebu_writel(port, stat, PCIE_STAT_OFF);
 }
 
+static u32 mvebu_pcie_get_local_bus_nr(struct mvebu_pcie_port *port)
+{
+	u32 stat;
+
+	stat = mvebu_readl(port, PCIE_STAT_OFF);
+	return (stat & PCIE_STAT_BUS) >> 8;
+}
+
 static void mvebu_pcie_set_local_dev_nr(struct mvebu_pcie_port *port, int nr)
 {
 	u32 stat;
@@ -170,6 +179,30 @@ static void mvebu_pcie_set_local_dev_nr(struct mvebu_pcie_port *port, int nr)
 	stat &= ~PCIE_STAT_DEV;
 	stat |= nr << 16;
 	mvebu_writel(port, stat, PCIE_STAT_OFF);
+}
+
+static void mvebu_pcie_wait_dev(struct mvebu_pcie_port *port)
+{
+	int tries;
+
+	for (tries = 0; tries < 1000; tries++) {
+		u32 vpid;
+
+		mvebu_writel(port,
+			     PCIE_CONF_ADDR(mvebu_pcie_get_local_bus_nr(port),
+					    PCI_DEVFN(0, 0), PCI_VENDOR_ID),
+			     PCIE_CONF_ADDR_OFF);
+		vpid = mvebu_readl(port, PCIE_CONF_DATA_OFF);
+
+		if (vpid != 0xffffffff)
+			break;
+
+		udelay(100);
+	}
+
+	if (tries >= 1000)
+		dev_warn(&port->pcie->pdev->dev,
+			 "timeout when looking for the PCIe device\n");
 }
 
 /*
@@ -951,6 +984,7 @@ static int mvebu_pcie_probe(struct platform_device *pdev)
 	for_each_child_of_node(pdev->dev.of_node, child) {
 		struct mvebu_pcie_port *port = &pcie->ports[i];
 		enum of_gpio_flags flags;
+		int linkup;
 
 		if (!of_device_is_available(child))
 			continue;
@@ -1035,7 +1069,12 @@ static int mvebu_pcie_probe(struct platform_device *pdev)
 			continue;
 		}
 
+		linkup = mvebu_pcie_link_up(port);
+
 		mvebu_pcie_set_local_dev_nr(port, 1);
+
+		if (linkup)
+			mvebu_pcie_wait_dev(port);
 
 		port->dn = child;
 		spin_lock_init(&port->conf_lock);
