@@ -246,11 +246,19 @@ __v7_pj4b_setup:
 	orr	r0, r0, #PJ4B_AUX_DBG_CTRL2
 	mcr	p15, 1,	r0, c15, c1, 2
 
+	/*
+	 * Read main ID register, and check if PJ4B-MP, because we
+	 * only want to set the PJ4B_SMP_CFB bit on PJ4B-MP below.
+	 */
+	mrc	p15, 0, r0, c0, c0, 0
+	ldr	r10, =0xff00fff0
+	and	r0, r0, r10
+	ldr	r10, =0x56005840
+	teq	r0, r10
+
 	/* Auxiliary Functional Modes Control Register 0 */
 	mrc	p15, 1,	r0, c15, c2, 0
-#ifdef CONFIG_SMP
-	orr	r0, r0, #PJ4B_SMP_CFB
-#endif
+	orreq	r0, r0, #PJ4B_SMP_CFB
 	orr	r0, r0, #PJ4B_L1_PAR_CHK
 	orr	r0, r0, #PJ4B_BROADCAST_CACHE
 	mcr	p15, 1,	r0, c15, c2, 0
