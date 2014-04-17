@@ -2,7 +2,8 @@ USB xHCI controllers
 
 Required properties:
   - compatible: should be one of "generic-xhci",
-    "marvell,armada-380-xhci" (deprecated: "xhci-platform").
+    "marvell,armada-375-xhci", "marvell,armada-380-xhci" (deprecated:
+    "xhci-platform").
   - reg: should contain address and length of the standard XHCI
     register set for the device.
   - interrupts: one XHCI interrupt should be described here.
