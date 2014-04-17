@@ -132,6 +132,7 @@ DT_MACHINE_START(ARMADA_370_DT, "Marvell Armada 370 (Device Tree)")
 	.init_time	= mvebu_timer_and_clk_init,
 	.restart	= mvebu_restart,
 	.dt_compat	= armada_370_dt_compat,
+	.flags          = MACHINE_NEEDS_CPOLICY_WRITEALLOC,
 MACHINE_END
 
 static const char * const armada_xp_dt_compat[] = {
@@ -144,6 +145,8 @@ DT_MACHINE_START(ARMADA_XP_DT, "Marvell Armada XP (Device Tree)")
 	.init_time	= mvebu_timer_and_clk_init,
 	.restart	= mvebu_restart,
 	.dt_compat	= armada_xp_dt_compat,
+	.flags          = (MACHINE_NEEDS_CPOLICY_WRITEALLOC |
+			   MACHINE_NEEDS_SHAREABLE_PAGES),
 MACHINE_END
 
 static const char * const armada_375_dt_compat[] = {
@@ -155,6 +158,8 @@ DT_MACHINE_START(ARMADA_375_DT, "Marvell Armada 375 (Device Tree)")
 	.init_time	= mvebu_timer_and_clk_init,
 	.restart	= mvebu_restart,
 	.dt_compat	= armada_375_dt_compat,
+	.flags          = (MACHINE_NEEDS_CPOLICY_WRITEALLOC |
+			   MACHINE_NEEDS_SHAREABLE_PAGES),
 MACHINE_END
 
 static const char * const armada_38x_dt_compat[] = {
@@ -167,4 +172,6 @@ DT_MACHINE_START(ARMADA_38X_DT, "Marvell Armada 380/385 (Device Tree)")
 	.init_time	= mvebu_timer_and_clk_init,
 	.restart	= mvebu_restart,
 	.dt_compat	= armada_38x_dt_compat,
+	.flags          = (MACHINE_NEEDS_CPOLICY_WRITEALLOC |
+			   MACHINE_NEEDS_SHAREABLE_PAGES),
 MACHINE_END
