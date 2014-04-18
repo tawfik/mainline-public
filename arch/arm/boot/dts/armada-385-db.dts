@@ -65,6 +65,10 @@
 				phy-mode = "rgmii-id";
 			};
 
+			usb@50000 {
+				status = "ok";
+			};
+
 			ethernet@70000 {
 				status = "okay";
 				phy = <&phy0>;
