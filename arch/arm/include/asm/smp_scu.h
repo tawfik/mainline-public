@@ -37,7 +37,7 @@ static inline int scu_power_mode(void __iomem *scu_base, unsigned int mode)
 }
 #endif
 
-#if defined(CONFIG_SMP) && defined(CONFIG_HAVE_ARM_SCU)
+#if defined(CONFIG_HAVE_ARM_SCU)
 void scu_enable(void __iomem *scu_base);
 #else
 static inline void scu_enable(void __iomem *scu_base) {}
