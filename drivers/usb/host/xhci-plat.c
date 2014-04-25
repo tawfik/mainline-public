@@ -11,6 +11,7 @@
  * version 2 as published by the Free Software Foundation.
  */
 
+#include <linux/clk.h>
 #include <linux/dma-mapping.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -18,6 +19,10 @@
 #include <linux/slab.h>
 
 #include "xhci.h"
+
+struct xhci_plat_priv {
+	struct clk *clk;
+};
 
 static void xhci_plat_quirks(struct device *dev, struct xhci_hcd *xhci)
 {
@@ -38,7 +43,8 @@ static int xhci_plat_setup(struct usb_hcd *hcd)
 static const struct hc_driver xhci_plat_xhci_driver = {
 	.description =		"xhci-hcd",
 	.product_desc =		"xHCI Host Controller",
-	.hcd_priv_size =	sizeof(struct xhci_hcd *),
+	.hcd_priv_size =	sizeof(struct xhci_hcd *) +
+				sizeof(struct xhci_plat_priv),
 
 	/*
 	 * generic hardware linkage
@@ -85,6 +91,40 @@ static const struct hc_driver xhci_plat_xhci_driver = {
 	.bus_resume =		xhci_bus_resume,
 };
 
+static int xhci_plat_enable_clk(struct platform_device *pdev)
+{
+	struct usb_hcd *hcd = platform_get_drvdata(pdev);
+	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
+	struct xhci_plat_priv *priv = (struct xhci_plat_priv *) xhci->priv;
+
+	priv->clk = devm_clk_get(&pdev->dev, NULL);
+
+	/*
+	 * Not all platforms have a clk so it is not an error if the
+	 * clock does not exists.
+	 */
+	if (IS_ERR(priv->clk))
+		return 0;
+
+	return clk_prepare_enable(priv->clk);
+}
+
+static void xhci_plat_disable_clk(struct platform_device *pdev)
+{
+	struct usb_hcd *hcd = platform_get_drvdata(pdev);
+	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
+	struct xhci_plat_priv *priv = (struct xhci_plat_priv *) xhci->priv;
+
+	/*
+	 * Not all platforms have a clk so it is not an error if the
+	 * clock does not exists.
+	 */
+	if (IS_ERR(priv->clk))
+		return;
+
+	clk_disable_unprepare(priv->clk);
+}
+
 static int xhci_plat_probe(struct platform_device *pdev)
 {
 	const struct hc_driver	*driver;
@@ -118,7 +158,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 
 	hcd = usb_create_hcd(driver, &pdev->dev, dev_name(&pdev->dev));
 	if (!hcd)
-		return -ENOMEM;
+		ret = -ENOMEM;
 
 	hcd->rsrc_start = res->start;
 	hcd->rsrc_len = resource_size(res);
@@ -140,6 +180,13 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	ret = usb_add_hcd(hcd, irq, IRQF_SHARED);
 	if (ret)
 		goto unmap_registers;
+
+	ret = xhci_plat_enable_clk(pdev);
+	if (ret) {
+		dev_dbg(&pdev->dev, "error enabling clocks\n");
+		goto dealloc_usb2_hcd;
+	}
+
 	device_wakeup_enable(hcd->self.controller);
 
 	/* USB 2.0 roothub is stored in the platform_device now. */
@@ -149,7 +196,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 			dev_name(&pdev->dev), hcd);
 	if (!xhci->shared_hcd) {
 		ret = -ENOMEM;
-		goto dealloc_usb2_hcd;
+		goto disable_clk;
 	}
 
 	/*
@@ -169,6 +216,9 @@ static int xhci_plat_probe(struct platform_device *pdev)
 
 put_usb3_hcd:
 	usb_put_hcd(xhci->shared_hcd);
+
+disable_clk:
+	xhci_plat_disable_clk(pdev);
 
 dealloc_usb2_hcd:
 	usb_remove_hcd(hcd);
@@ -193,6 +243,7 @@ static int xhci_plat_remove(struct platform_device *dev)
 	usb_remove_hcd(xhci->shared_hcd);
 	usb_put_hcd(xhci->shared_hcd);
 
+	xhci_plat_disable_clk(dev);
 	usb_remove_hcd(hcd);
 	iounmap(hcd->regs);
 	release_mem_region(hcd->rsrc_start, hcd->rsrc_len);
