@@ -15,6 +15,7 @@
 #include <linux/clk.h>
 #include <linux/platform_data/usb-ehci-orion.h>
 #include <linux/of.h>
+#include <linux/phy/phy.h>
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/usb.h>
@@ -46,6 +47,7 @@
 
 struct orion_ehci_hcd {
 	struct clk *clk;
+	struct phy *phy;
 };
 
 static const char hcd_name[] = "ehci-orion";
@@ -224,6 +226,18 @@ static int ehci_orion_drv_probe(struct platform_device *pdev)
 	if (!IS_ERR(priv->clk))
 		clk_prepare_enable(priv->clk);
 
+
+	priv->phy = devm_phy_get(&pdev->dev, "usb");
+	if (!IS_ERR(priv->phy)) {
+		err = phy_init(priv->phy);
+		if (err)
+			goto err2;
+
+		err = phy_power_on(priv->phy);
+		if (err)
+			goto err3;
+	}
+
 	/*
 	 * (Re-)program MBUS remapping windows if we are asked to.
 	 */
@@ -253,14 +267,18 @@ static int ehci_orion_drv_probe(struct platform_device *pdev)
 
 	err = usb_add_hcd(hcd, irq, IRQF_SHARED);
 	if (err)
-		goto err2;
+		goto err4;
 
 	device_wakeup_enable(hcd->self.controller);
 	return 0;
 
-err2:
+err4:
 	usb_put_hcd(hcd);
 
+err3:
+	phy_exit(priv->phy);
+
+err2:
 	if (!IS_ERR(priv->clk))
 		clk_disable_unprepare(priv->clk);
 err1:
@@ -277,6 +295,9 @@ static int ehci_orion_drv_remove(struct platform_device *pdev)
 
 	usb_remove_hcd(hcd);
 	usb_put_hcd(hcd);
+
+	if (!IS_ERR(priv->phy))
+		phy_exit(priv->phy);
 
 	if (!IS_ERR(priv->clk))
 		clk_disable_unprepare(priv->clk);
