@@ -32,8 +32,10 @@
 #include <asm/suspend.h>
 #include <asm/tlbflush.h>
 #include "common.h"
+extern void printascii(const char *);
 
 static void __iomem *pmsu_mp_base;
+static void __iomem *pmu_base;
 
 #define PMSU_BASE_OFFSET    0x100
 #define PMSU_REG_SIZE	    0x1000
@@ -63,6 +65,15 @@ static void __iomem *pmsu_mp_base;
 #define L2C_NFABRIC_PM_CTL		    0x4
 #define L2C_NFABRIC_PM_CTL_PWR_DOWN		BIT(20)
 
+
+/* PMU registers */
+#define PMU_PWR_IF_POLARITY	0x4
+#define PMU_PWR_POLARITY_0	    BIT(0)
+#define PMU_PWR_POLARITY_1	    BIT(1)
+#define PMU_PWR_POLARITY_2	    BIT(2)
+
+#define PMU_PWR_UP_DELAY_0	0x14
+
 extern void ll_disable_coherency(void);
 extern void ll_enable_coherency(void);
 
@@ -74,6 +85,11 @@ static struct of_device_id of_pmsu_table[] = {
 	{ .compatible = "marvell,armada-370-pmsu", },
 	{ .compatible = "marvell,armada-370-xp-pmsu", },
 	{ .compatible = "marvell,armada-380-pmsu", },
+	{ /* end of list */ },
+};
+
+static struct of_device_id of_pmu_table[] = {
+	{ .compatible = "marvell,armada-370-pmu", },
 	{ /* end of list */ },
 };
 
@@ -122,6 +138,26 @@ static int __init armada_370_xp_pmsu_init(void)
 		goto out;
 	}
 
+       np = of_find_matching_node(NULL, of_pmu_table);
+       if (np) {
+	       pr_info("Initializing Power Management Unit\n");
+	       pmu_base = of_iomap(np, 0);
+	       WARN_ON(!pmu_base);
+       }
+       pr_err("%s PMU_PWR_IF_POLARITY=%X\n",__func__, readl(pmu_base +PMU_PWR_IF_POLARITY) );
+       pr_err("%s PMU_PWR_UP_DELAY_0=%X\n",__func__, readl(pmu_base +PMU_PWR_UP_DELAY_0) );
+
+       writel(0, pmu_base +PMU_PWR_IF_POLARITY);
+       writel(0x100, pmu_base + PMU_PWR_UP_DELAY_0);
+
+       {
+	       int i = 0;
+	       for (i = 0; i< 0x28; i+=4)
+		       printk("@%X = %X\n", i, readl(pmu_base +i));
+       }
+       pr_err("%s PMU_PWR_IF_POLARITY=%X\n",__func__, readl(pmu_base +PMU_PWR_IF_POLARITY) );
+       pr_err("%s PMU_PWR_UP_DELAY_0=%X\n",__func__, readl(pmu_base +PMU_PWR_UP_DELAY_0) );
+
  out:
 	of_node_put(np);
 	return ret;
@@ -142,7 +178,7 @@ static void armada_370_xp_pmsu_enable_l2_powerdown_onidle(void)
 
 static void armada_370_xp_cpu_resume(void)
 {
-	asm volatile("bl    ll_add_cpu_to_smp_group\n\t"
+	asm volatile(//"bl    ll_add_cpu_to_smp_group\n\t"
 		     "bl    ll_enable_coherency\n\t"
 		     "b	    cpu_resume\n\t");
 }
@@ -152,7 +188,7 @@ void armada_370_xp_pmsu_idle_prepare(bool deepidle)
 {
 	unsigned int hw_cpu = cpu_logical_map(smp_processor_id());
 	u32 reg;
-
+//	printascii("armada_370_xp_pmsu_idle_prepare 1\n");
 	if (pmsu_mp_base == NULL)
 		return;
 
@@ -180,13 +216,21 @@ void armada_370_xp_pmsu_idle_prepare(bool deepidle)
 	writel(reg, pmsu_mp_base + PMSU_CONTROL_AND_CONFIG(hw_cpu));
 
 	/* Disable snoop disable by HW - SW is taking care of it */
-	reg = readl(pmsu_mp_base + PMSU_CPU_POWER_DOWN_CONTROL(hw_cpu));
-	reg |= PMSU_CPU_POWER_DOWN_DIS_SNP_Q_SKIP;
-	writel(reg, pmsu_mp_base + PMSU_CPU_POWER_DOWN_CONTROL(hw_cpu));
+	if (of_machine_is_compatible("marvell,armadaxp")) {
+		reg = readl(pmsu_mp_base + PMSU_CPU_POWER_DOWN_CONTROL(hw_cpu));
+		reg |= PMSU_CPU_POWER_DOWN_DIS_SNP_Q_SKIP;
+		writel(reg, pmsu_mp_base + PMSU_CPU_POWER_DOWN_CONTROL(hw_cpu));
+	} else {
+		ll_disable_coherency();
+//	printascii("armada_370_xp_pmsu_idle_prepare 4 dis\n");
+	}
+
+//	printascii("armada_370_xp_pmsu_idle_prepare 1\n");
 }
 
 static noinline int do_armada_370_xp_cpu_suspend(unsigned long deepidle)
 {
+//	printascii("do_armada_370_xp_cpu_suspend enter\n");
 	armada_370_xp_pmsu_idle_prepare(deepidle);
 
 	v7_exit_coherency_flush(all);
@@ -228,14 +272,22 @@ static noinline void armada_370_xp_pmsu_idle_restore(void)
 {
 	unsigned int hw_cpu = cpu_logical_map(smp_processor_id());
 	u32 reg;
+printascii("armada_370_xp_pmsu_idle_restore 1\n");
 
 	if (pmsu_mp_base == NULL)
 		return;
+
+printascii("armada_370_xp_pmsu_idle_restore 2\n");
 
 	/* cancel ask HW to power down the L2 Cache if possible */
 	reg = readl(pmsu_mp_base + PMSU_CONTROL_AND_CONFIG(hw_cpu));
 	reg &= ~PMSU_CONTROL_AND_CONFIG_L2_PWDDN;
 	writel(reg, pmsu_mp_base + PMSU_CONTROL_AND_CONFIG(hw_cpu));
+
+
+	local_flush_tlb_all();
+
+	ll_enable_coherency();
 
 	/* cancel Enable wakeup events and mask interrupts */
 	reg = readl(pmsu_mp_base + PMSU_STATUS_AND_MASK(hw_cpu));
@@ -272,10 +324,10 @@ int __init armada_370_xp_cpu_pm_init(void)
 	 * cpuidle. So far, it is only supported on Armada XP, cpuidle
 	 * needs the coherency fabric and the PMSU enabled
 	 */
-
+/*
 	if (!of_machine_is_compatible("marvell,armadaxp"))
 		return 0;
-
+*/
 	np = of_find_compatible_node(NULL, NULL, "marvell,coherency-fabric");
 	if (!np)
 		return 0;

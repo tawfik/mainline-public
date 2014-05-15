@@ -178,6 +178,11 @@
 				clock-output-names = "nand";
 			};
 
+			armada-370-pmu@1c000 {
+				compatible = "marvell,armada-370-pmu";
+				reg = <0x1c000 0x28>;
+			};
+
 			mbusc: mbus-controller@20000 {
 				compatible = "marvell,mbus-controller";
 				reg = <0x20000 0x100>, <0x20180 0x20>;
