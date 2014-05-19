@@ -57,7 +57,7 @@ pmd_t *top_pmd;
 #define CPOLICY_WRITEBACK	3
 #define CPOLICY_WRITEALLOC	4
 
-static unsigned int cachepolicy __initdata = CPOLICY_WRITEBACK;
+static unsigned int cachepolicy __initdata = CPOLICY_WRITEALLOC;
 static unsigned int ecc_mask __initdata = 0;
 pgprot_t pgprot_user;
 pgprot_t pgprot_kernel;
@@ -147,8 +147,8 @@ static int __init early_cachepolicy(char *p)
 	 * page tables.
 	 */
 	if (cpu_architecture() >= CPU_ARCH_ARMv6) {
-		printk(KERN_WARNING "Only cachepolicy=writeback supported on ARMv6 and later\n");
-		cachepolicy = CPOLICY_WRITEBACK;
+		printk(KERN_WARNING "Only cachepolicy={writeback,writealloc} supported on ARMv6 and later\n");
+		cachepolicy = CPOLICY_WRITEALLOC;
 	}
 	flush_cache_all();
 	set_cr(cr_alignment);
@@ -408,14 +408,14 @@ static void __init build_mem_type_table(void)
 		if (cachepolicy > CPOLICY_WRITETHROUGH)
 			cachepolicy = CPOLICY_WRITETHROUGH;
 #endif
+		if (cachepolicy > CPOLICY_WRITEBACK)
+			cachepolicy = CPOLICY_WRITEBACK;
 	}
 	if (cpu_arch < CPU_ARCH_ARMv5) {
 		if (cachepolicy >= CPOLICY_WRITEALLOC)
 			cachepolicy = CPOLICY_WRITEBACK;
 		ecc_mask = 0;
 	}
-	if (is_smp())
-		cachepolicy = CPOLICY_WRITEALLOC;
 
 	/*
 	 * Strip out features not present on earlier architectures.

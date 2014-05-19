@@ -19,9 +19,9 @@
 #define TTB_IRGN_WT	((1 << 0) | (0 << 6))
 #define TTB_IRGN_WB	((1 << 0) | (1 << 6))
 
-/* PTWs cacheable, inner WB not shareable, outer WB not shareable */
-#define TTB_FLAGS_UP	TTB_IRGN_WB|TTB_RGN_OC_WB
-#define PMD_FLAGS_UP	PMD_SECT_WB
+/* PTWs cacheable, inner WBWA not shareable, outer WBWA not shareable */
+#define TTB_FLAGS_UP	TTB_IRGN_WBWA|TTB_RGN_OC_WBWA
+#define PMD_FLAGS_UP	PMD_SECT_WBWA
 
 /* PTWs cacheable, inner WBWA shareable, outer WBWA not shareable */
 #define TTB_FLAGS_SMP	TTB_IRGN_WBWA|TTB_S|TTB_NOS|TTB_RGN_OC_WBWA
