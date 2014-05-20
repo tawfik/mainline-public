@@ -508,6 +508,9 @@ __fixup_smp:
 	mrc	p15, 4, r0, c15, c0	@ get SCU base address
 	teq	r0, #0x0		@ '0' on actual UP A9 hardware
 	beq	__fixup_smp_on_up	@ So its an A9 UP
+	ldr     r3, =0xd000c000
+	teq     r0, r3
+	ldreq   r0, =0xf100c000
 	ldr	r0, [r0, #4]		@ read SCU Config
 ARM_BE8(rev	r0, r0)			@ byteswap if big endian
 	and	r0, r0, #0x3		@ number of CPUs
