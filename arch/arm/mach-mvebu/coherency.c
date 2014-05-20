@@ -322,9 +322,16 @@ static int coherency_type(void)
 	if (np) {
 		int type = (int) match->data;
 
-		/* Armada 370/XP coherency works in both UP and SMP */
-		if (type == COHERENCY_FABRIC_TYPE_ARMADA_370_XP)
-			return type;
+		/*
+		 * Armada 370 coherency has not special requirements,
+		 * Armada XP coherency requires SMP capabilities.
+		 */
+		if (type == COHERENCY_FABRIC_TYPE_ARMADA_370_XP) {
+			if (of_machine_is_compatible("marvell,armadaxp") && is_smp())
+				return type;
+			else if (of_machine_is_compatible("marvell,armada370"))
+				return type;
+		}
 
 		/* Armada 375 coherency works only on SMP */
 		else if (type == COHERENCY_FABRIC_TYPE_ARMADA_375 && is_smp())
