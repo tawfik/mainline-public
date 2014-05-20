@@ -363,6 +363,11 @@ int __init coherency_init(void)
 		 type == COHERENCY_FABRIC_TYPE_ARMADA_380)
 		armada_375_380_coherency_init(np);
 
+	if (type != COHERENCY_FABRIC_TYPE_NONE)
+		pr_info("hardware I/O coherency enabled\n");
+	else
+		pr_info("hardware I/O coherency disabled\n");
+
 	return 0;
 }
 
