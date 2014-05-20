@@ -196,7 +196,7 @@ __v7_ca12mp_setup:
 __v7_ca15mp_setup:
 	mov	r10, #0
 1:
-#ifdef CONFIG_SMP
+#if defined(CONFIG_SMP) || defined(CONFIG_SMP_ON_UP)
 	ALT_SMP(mrc	p15, 0, r0, c1, c0, 1)
 	ALT_UP(mov	r0, #(1 << 6))		@ fake it for UP
 	tst	r0, #(1 << 6)			@ SMP/nAMP mode enabled?
@@ -248,7 +248,7 @@ __v7_pj4b_setup:
 
 	/* Auxiliary Functional Modes Control Register 0 */
 	mrc	p15, 1,	r0, c15, c2, 0
-#ifdef CONFIG_SMP
+#if defined(CONFIG_SMP) || defined(CONFIG_SMP_ON_UP)
 	orr	r0, r0, #PJ4B_SMP_CFB
 #endif
 	orr	r0, r0, #PJ4B_L1_PAR_CHK

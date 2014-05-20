@@ -223,7 +223,7 @@
 	.long	9999b,9001f;			\
 	.popsection
 
-#ifdef CONFIG_SMP
+#if defined(CONFIG_SMP) || defined(CONFIG_SMP_ON_UP)
 #define ALT_SMP(instr...)					\
 9998:	instr
 /*
