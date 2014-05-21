@@ -32,9 +32,35 @@
 #include <asm/suspend.h>
 #include <asm/tlbflush.h>
 #include "common.h"
+
+#include <linux/mbus.h>
+
+
+#define CRYPT0_ENG_ID  0x9
+#define CRYPT0_ENG_ATTR        0x1
+#define SRAM_PHYS_BASE 0xFFFF0000
+
+extern void* armada370_deep_idle_exit_end;
+extern void* armada370_deep_idle_exit_start;
+
+void a370_cpuidle_enable_wa(void)
+{
+	u32 code_len;
+	void __iomem *sram_virt_base;
+	mvebu_mbus_del_window(0xfff00000 , SZ_1M);
+	mvebu_mbus_add_window_by_id(CRYPT0_ENG_ID, CRYPT0_ENG_ATTR,
+				SRAM_PHYS_BASE, SZ_64K);
+	sram_virt_base = ioremap(SRAM_PHYS_BASE, SZ_64K);
+
+	code_len = 4 * (&armada370_deep_idle_exit_end
+			- &armada370_deep_idle_exit_start);
+
+	memcpy(sram_virt_base, &armada370_deep_idle_exit_start, code_len);
+}
+
 extern void printascii(const char *);
 
-static void __iomem *pmsu_mp_base;
+void __iomem *pmsu_mp_base;
 static void __iomem *pmu_base;
 
 #define PMSU_BASE_OFFSET    0x100
@@ -148,7 +174,7 @@ static int __init armada_370_xp_pmsu_init(void)
        pr_err("%s PMU_PWR_UP_DELAY_0=%X\n",__func__, readl(pmu_base +PMU_PWR_UP_DELAY_0) );
 
        writel(0, pmu_base +PMU_PWR_IF_POLARITY);
-       writel(0x100, pmu_base + PMU_PWR_UP_DELAY_0);
+       writel(0x5e80, pmu_base + PMU_PWR_UP_DELAY_0);
 
        {
 	       int i = 0;
@@ -178,7 +204,7 @@ static void armada_370_xp_pmsu_enable_l2_powerdown_onidle(void)
 
 static void armada_370_xp_cpu_resume(void)
 {
-	asm volatile(//"bl    ll_add_cpu_to_smp_group\n\t"
+	asm volatile("bl    ll_add_cpu_to_smp_group\n\t"
 		     "bl    ll_enable_coherency\n\t"
 		     "b	    cpu_resume\n\t");
 }
@@ -188,7 +214,7 @@ void armada_370_xp_pmsu_idle_prepare(bool deepidle)
 {
 	unsigned int hw_cpu = cpu_logical_map(smp_processor_id());
 	u32 reg;
-//	printascii("armada_370_xp_pmsu_idle_prepare 1\n");
+	printascii("armada_370_xp_pmsu_idle_prepare\n");
 	if (pmsu_mp_base == NULL)
 		return;
 
@@ -220,6 +246,7 @@ void armada_370_xp_pmsu_idle_prepare(bool deepidle)
 		reg = readl(pmsu_mp_base + PMSU_CPU_POWER_DOWN_CONTROL(hw_cpu));
 		reg |= PMSU_CPU_POWER_DOWN_DIS_SNP_Q_SKIP;
 		writel(reg, pmsu_mp_base + PMSU_CPU_POWER_DOWN_CONTROL(hw_cpu));
+
 	} else {
 		ll_disable_coherency();
 //	printascii("armada_370_xp_pmsu_idle_prepare 4 dis\n");
@@ -230,9 +257,9 @@ void armada_370_xp_pmsu_idle_prepare(bool deepidle)
 
 static noinline int do_armada_370_xp_cpu_suspend(unsigned long deepidle)
 {
-//	printascii("do_armada_370_xp_cpu_suspend enter\n");
+	printascii("do_armada_370_xp_cpu_suspend enter\n");
 	armada_370_xp_pmsu_idle_prepare(deepidle);
-
+	printascii("do_armada_370_xp_cpu_suspend prepare done\n");
 	v7_exit_coherency_flush(all);
 
 	ll_disable_coherency();
@@ -240,7 +267,7 @@ static noinline int do_armada_370_xp_cpu_suspend(unsigned long deepidle)
 	dsb();
 
 	wfi();
-
+	printascii("do_armada_370_xp_cpu_suspend exit wfi\n");
 	/* If we are here, wfi failed. As processors run out of
 	 * coherency for some time, tlbs might be stale, so flush them
 	 */
@@ -328,6 +355,7 @@ int __init armada_370_xp_cpu_pm_init(void)
 	if (!of_machine_is_compatible("marvell,armadaxp"))
 		return 0;
 */
+
 	np = of_find_compatible_node(NULL, NULL, "marvell,coherency-fabric");
 	if (!np)
 		return 0;
@@ -337,6 +365,8 @@ int __init armada_370_xp_cpu_pm_init(void)
 	if (!np)
 		return 0;
 	of_node_put(np);
+
+	a370_cpuidle_enable_wa();
 
 	armada_370_xp_pmsu_enable_l2_powerdown_onidle();
 	armada_xp_cpuidle_device.dev.platform_data = armada_370_xp_cpu_suspend;

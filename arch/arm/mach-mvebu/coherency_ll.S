@@ -20,9 +20,11 @@
 #define ARMADA_XP_CFB_CTL_REG_OFFSET 0x0
 #define ARMADA_XP_CFB_CFG_REG_OFFSET 0x4
 
+#define PMSU_BOOT_ADDR_REDIRECT_OFFSET 0x124
+
 #include <asm/assembler.h>
 #include <asm/cp15.h>
-
+#define UP_ONLY
 	.text
 /* Returns with the coherency address in r1 (r0 is untouched)*/
 ENTRY(ll_get_coherency_base)
@@ -72,11 +74,17 @@ ENTRY(ll_add_cpu_to_smp_group)
 	mov lr, r0
 	add	r0, r1, #ARMADA_XP_CFB_CFG_REG_OFFSET
 1:
+#ifndef UP_ONLY
 	ldrex	r2, [r0]
 	orr	r2, r2, r3
 	strex	r1, r2, [r0]
 	cmp	r1, #0
 	bne	1b
+#else
+	ldr	r2, [r0]
+	orr	r2, r2, r3
+	str	r2, [r0]
+#endif
 	mov	pc, lr
 ENDPROC(ll_add_cpu_to_smp_group)
 
@@ -92,11 +100,17 @@ ENTRY(ll_enable_coherency)
 	mov lr, r0
 	add	r0, r1, #ARMADA_XP_CFB_CTL_REG_OFFSET
 1:
+#ifndef UP_ONLY
 	ldrex	r2, [r0]
 	orr	r2, r2, r3
 	strex	r1, r2, [r0]
 	cmp	r1, #0
 	bne	1b
+#else
+	ldr	r2, [r0]
+	orr	r2, r2, r3
+	str	r2, [r0]
+#endif
 	dsb
 	mov	r0, #0
 	mov	pc, lr
@@ -114,15 +128,39 @@ ENTRY(ll_disable_coherency)
 	mov lr, r0
 	add	r0, r1, #ARMADA_XP_CFB_CTL_REG_OFFSET
 1:
+#ifndef UP_ONLY
 	ldrex	r2, [r0]
 	bic	r2, r2, r3
 	strex	r1, r2, [r0]
 	cmp	r1, #0
 	bne	1b
+#else
+	ldr	r2, [r0]
+	bic	r2, r2, r3
+	str	r2, [r0]
+#endif
 	dsb
 	mov	pc, lr
 ENDPROC(ll_disable_coherency)
 
+.global armada370_deep_idle_exit_start
+.global armada370_deep_idle_exit_end
+
+ENTRY(armada370_deep_idle_exit_start)
+armada370_deep_idle_exit_start:
+/* use physical address of the coherency register */
+	adr     r1, 4f
+	ldr     r3, [r1]
+	ldr     r1, [r1, r3]
+	add     r0, r1, #PMSU_BOOT_ADDR_REDIRECT_OFFSET
+	ldr     r1, [r0]
+	mov     pc, r1
+armada370_deep_idle_exit_end:
+ENDPROC(armada370_deep_idle_exit_end)
+
 	.align 2
 3:
 	.long	coherency_phys_base - .
+4:
+	.long   pmsu_mp_base - .
+
