@@ -28,6 +28,7 @@
 #include <linux/resource.h>
 #include <asm/cacheflush.h>
 #include <asm/cp15.h>
+#include <asm/smp_scu.h>
 #include <asm/smp_plat.h>
 #include <asm/suspend.h>
 #include <asm/tlbflush.h>
@@ -147,8 +148,23 @@ static void armada_370_xp_cpu_resume(void)
 		     "b	    cpu_resume\n\t");
 }
 
+static void armada_38x_cpu_resume(void)
+{
+	asm volatile("bl      v7_invalidate_l1\n\t"
+		"mov    r1, #0xf1000000\n\t"
+		"orr    r1, r1, #0xC000\n\t"
+		"orr    r1, r1, #0x8\n\t"
+		"mrc    15, 0, r0, cr0, cr0, 5\n\t"
+		"and    r0, r0, #15\n\t"
+		"add    r1, r1, r0\n\t"
+		"mov    r0, #0x0\n\t"
+		"strb   r0, [r1]\n\t"
+		"b          cpu_resume\n\t");
+}
+
+
 /* No locking is needed because we only access per-CPU registers */
-void armada_370_xp_pmsu_idle_prepare(bool deepidle)
+void armada_370_xp_pmsu_idle_prepare(bool deepidle, bool snoopdis)
 {
 	unsigned int hw_cpu = cpu_logical_map(smp_processor_id());
 	u32 reg;
@@ -178,16 +194,17 @@ void armada_370_xp_pmsu_idle_prepare(bool deepidle)
 	/* request power down */
 	reg |= PMSU_CONTROL_AND_CONFIG_PWDDN_REQ;
 	writel(reg, pmsu_mp_base + PMSU_CONTROL_AND_CONFIG(hw_cpu));
-
-	/* Disable snoop disable by HW - SW is taking care of it */
-	reg = readl(pmsu_mp_base + PMSU_CPU_POWER_DOWN_CONTROL(hw_cpu));
-	reg |= PMSU_CPU_POWER_DOWN_DIS_SNP_Q_SKIP;
-	writel(reg, pmsu_mp_base + PMSU_CPU_POWER_DOWN_CONTROL(hw_cpu));
+	if (snoopdis) {
+		/* Disable snoop disable by HW - SW is taking care of it */
+		reg = readl(pmsu_mp_base + PMSU_CPU_POWER_DOWN_CONTROL(hw_cpu));
+		reg |= PMSU_CPU_POWER_DOWN_DIS_SNP_Q_SKIP;
+		writel(reg, pmsu_mp_base + PMSU_CPU_POWER_DOWN_CONTROL(hw_cpu));
+	}
 }
 
 static noinline int do_armada_370_xp_cpu_suspend(unsigned long deepidle)
 {
-	armada_370_xp_pmsu_idle_prepare(deepidle);
+	armada_370_xp_pmsu_idle_prepare(deepidle, true);
 
 	v7_exit_coherency_flush(all);
 
@@ -218,11 +235,33 @@ static noinline int do_armada_370_xp_cpu_suspend(unsigned long deepidle)
 	return 0;
 }
 
+extern void __iomem *scu_base;
+static noinline int do_armada_38x_cpu_suspend(unsigned long deepidle)
+{
+	armada_370_xp_pmsu_idle_prepare(false, false);
+
+	/*
+	 * Already flushed cache, but do it again as the outer cache
+	 * functions dirty the cache with spinlocks
+	 */
+	v7_exit_coherency_flush(louis);
+
+	scu_power_mode(scu_base, SCU_PM_POWEROFF);
+
+	cpu_do_idle();
+
+	return 1;
+}
+
 static int armada_370_xp_cpu_suspend(unsigned long deepidle)
 {
 	return cpu_suspend(deepidle, do_armada_370_xp_cpu_suspend);
 }
 
+static int armada_38x_cpu_suspend(unsigned long deepidle)
+{
+	return cpu_suspend(deepidle, do_armada_38x_cpu_suspend);
+}
 /* No locking is needed because we only access per-CPU registers */
 static noinline void armada_370_xp_pmsu_idle_restore(void)
 {
@@ -232,10 +271,12 @@ static noinline void armada_370_xp_pmsu_idle_restore(void)
 	if (pmsu_mp_base == NULL)
 		return;
 
-	/* cancel ask HW to power down the L2 Cache if possible */
-	reg = readl(pmsu_mp_base + PMSU_CONTROL_AND_CONFIG(hw_cpu));
-	reg &= ~PMSU_CONTROL_AND_CONFIG_L2_PWDDN;
-	writel(reg, pmsu_mp_base + PMSU_CONTROL_AND_CONFIG(hw_cpu));
+	if (of_machine_is_compatible("marvell,armadaxp")) {
+		/* cancel ask HW to power down the L2 Cache if possible */
+		reg = readl(pmsu_mp_base + PMSU_CONTROL_AND_CONFIG(hw_cpu));
+		reg &= ~PMSU_CONTROL_AND_CONFIG_L2_PWDDN;
+		writel(reg, pmsu_mp_base + PMSU_CONTROL_AND_CONFIG(hw_cpu));
+	}
 
 	/* cancel Enable wakeup events and mask interrupts */
 	reg = readl(pmsu_mp_base + PMSU_STATUS_AND_MASK(hw_cpu));
@@ -259,8 +300,26 @@ static int armada_370_xp_cpu_pm_notify(struct notifier_block *self,
 	return NOTIFY_OK;
 }
 
+static int armada_38x_cpu_pm_notify(struct notifier_block *self,
+				    unsigned long action, void *hcpu)
+{
+	if (action == CPU_PM_ENTER) {
+		unsigned int hw_cpu = cpu_logical_map(smp_processor_id());
+
+		mvebu_pmsu_set_cpu_boot_addr(hw_cpu, armada_38x_cpu_resume);
+	} else if (action == CPU_PM_EXIT) {
+		armada_370_xp_pmsu_idle_restore();
+	}
+
+	return NOTIFY_OK;
+}
+
 static struct notifier_block armada_370_xp_cpu_pm_notifier = {
 	.notifier_call = armada_370_xp_cpu_pm_notify,
+};
+
+static struct notifier_block armada_38x_cpu_pm_notifier = {
+	.notifier_call = armada_38x_cpu_pm_notify,
 };
 
 int __init armada_370_xp_cpu_pm_init(void)
@@ -269,16 +328,22 @@ int __init armada_370_xp_cpu_pm_init(void)
 
 	/*
 	 * Check that all the requirements are available to enable
-	 * cpuidle. So far, it is only supported on Armada XP, cpuidle
-	 * needs the coherency fabric and the PMSU enabled
+	 * cpuidle. So far, it is only supported on Armada XP and 38x,
+	 * cpuidle needs the coherency fabric and the PMSU enabled
 	 */
 
-	if (!of_machine_is_compatible("marvell,armadaxp"))
+	if (!of_machine_is_compatible("marvell,armadaxp") &&
+		!of_machine_is_compatible("marvell,armada38x"))
 		return 0;
 
+
 	np = of_find_compatible_node(NULL, NULL, "marvell,coherency-fabric");
-	if (!np)
-		return 0;
+	if (!np) {
+		np = of_find_compatible_node(NULL, NULL, "marvell,armada-380-coherency-fabric");
+		if (!np)
+			return 0;
+	}
+
 	of_node_put(np);
 
 	np = of_find_matching_node(NULL, of_pmsu_table);
@@ -286,10 +351,19 @@ int __init armada_370_xp_cpu_pm_init(void)
 		return 0;
 	of_node_put(np);
 
+
 	armada_370_xp_pmsu_enable_l2_powerdown_onidle();
-	armada_xp_cpuidle_device.dev.platform_data = armada_370_xp_cpu_suspend;
+
+	if (of_machine_is_compatible("marvell,armadaxp"))
+		armada_xp_cpuidle_device.dev.platform_data = armada_370_xp_cpu_suspend;
+	else
+		armada_xp_cpuidle_device.dev.platform_data = armada_38x_cpu_suspend;
 	platform_device_register(&armada_xp_cpuidle_device);
-	cpu_pm_register_notifier(&armada_370_xp_cpu_pm_notifier);
+	if (of_machine_is_compatible("marvell,armadaxp"))
+		cpu_pm_register_notifier(&armada_370_xp_cpu_pm_notifier);
+	else
+		cpu_pm_register_notifier(&armada_38x_cpu_pm_notifier);
+
 
 	return 0;
 }

@@ -33,14 +33,14 @@
 #include "coherency.h"
 #include "mvebu-soc-id.h"
 
+void __iomem *scu_base;
+
 /*
  * Enables the SCU when available. Obviously, this is only useful on
  * Cortex-A based SOCs, not on PJ4B based ones.
  */
 static void __init mvebu_scu_enable(void)
 {
-	void __iomem *scu_base;
-
 	struct device_node *np =
 		of_find_compatible_node(NULL, NULL, "arm,cortex-a9-scu");
 	if (np) {
