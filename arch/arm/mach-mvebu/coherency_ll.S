@@ -146,21 +146,25 @@ ENDPROC(ll_disable_coherency)
 .global armada370_deep_idle_exit_start
 .global armada370_deep_idle_exit_end
 
+/* The following code will be executed from SRAM */
 ENTRY(armada370_deep_idle_exit_start)
 armada370_deep_idle_exit_start:
-/* use physical address of the coherency register */
+/* use physical address of the pmsu register register */
 	adr     r1, 4f
-	ldr     r3, [r1]
-	ldr     r1, [r1, r3]
+	ldr     r1, [r1]
 	add     r0, r1, #PMSU_BOOT_ADDR_REDIRECT_OFFSET
 	ldr     r1, [r0]
 	mov     pc, r1
+/*
+ * the last word of this piece of code will be filled by the physical
+ * address of the pmsu mp register just after being copied in SRAM
+ */
+4:
+	.long   .
 armada370_deep_idle_exit_end:
 ENDPROC(armada370_deep_idle_exit_end)
 
 	.align 2
 3:
 	.long	coherency_phys_base - .
-4:
-	.long   pmsu_mp_base - .
 

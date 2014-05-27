@@ -43,6 +43,8 @@
 extern void* armada370_deep_idle_exit_end;
 extern void* armada370_deep_idle_exit_start;
 
+static unsigned long pmsu_mp_phys_base;
+
 void a370_cpuidle_enable_wa(void)
 {
 	u32 code_len;
@@ -56,11 +58,12 @@ void a370_cpuidle_enable_wa(void)
 			- &armada370_deep_idle_exit_start);
 
 	memcpy(sram_virt_base, &armada370_deep_idle_exit_start, code_len);
+	*(unsigned long *)(sram_virt_base + code_len - 4) = pmsu_mp_phys_base;
+	print_hex_dump(KERN_INFO, "", DUMP_PREFIX_OFFSET, 1, 4, sram_virt_base,
+		code_len, 0);
 }
 
-extern void printascii(const char *);
-
-void __iomem *pmsu_mp_base;
+static void __iomem *pmsu_mp_base;
 static void __iomem *pmu_base;
 
 #define PMSU_BASE_OFFSET    0x100
@@ -156,6 +159,8 @@ static int __init armada_370_xp_pmsu_init(void)
 		goto out;
 	}
 
+	pmsu_mp_phys_base = res.start;
+
 	pmsu_mp_base = ioremap(res.start, resource_size(&res));
 	if (!pmsu_mp_base) {
 		pr_err("unable to map registers\n");
@@ -214,7 +219,7 @@ void armada_370_xp_pmsu_idle_prepare(bool deepidle)
 {
 	unsigned int hw_cpu = cpu_logical_map(smp_processor_id());
 	u32 reg;
-	printascii("armada_370_xp_pmsu_idle_prepare\n");
+
 	if (pmsu_mp_base == NULL)
 		return;
 
@@ -230,6 +235,7 @@ void armada_370_xp_pmsu_idle_prepare(bool deepidle)
 	       PMSU_STATUS_AND_MASK_SNP_Q_EMPTY_WAIT |
 	       PMSU_STATUS_AND_MASK_IRQ_MASK         |
 	       PMSU_STATUS_AND_MASK_FIQ_MASK;
+
 	writel(reg, pmsu_mp_base + PMSU_STATUS_AND_MASK(hw_cpu));
 
 	reg = readl(pmsu_mp_base + PMSU_CONTROL_AND_CONFIG(hw_cpu));
@@ -247,19 +253,14 @@ void armada_370_xp_pmsu_idle_prepare(bool deepidle)
 		reg |= PMSU_CPU_POWER_DOWN_DIS_SNP_Q_SKIP;
 		writel(reg, pmsu_mp_base + PMSU_CPU_POWER_DOWN_CONTROL(hw_cpu));
 
-	} else {
-		ll_disable_coherency();
-//	printascii("armada_370_xp_pmsu_idle_prepare 4 dis\n");
 	}
 
-//	printascii("armada_370_xp_pmsu_idle_prepare 1\n");
 }
 
 static noinline int do_armada_370_xp_cpu_suspend(unsigned long deepidle)
 {
-	printascii("do_armada_370_xp_cpu_suspend enter\n");
 	armada_370_xp_pmsu_idle_prepare(deepidle);
-	printascii("do_armada_370_xp_cpu_suspend prepare done\n");
+
 	v7_exit_coherency_flush(all);
 
 	ll_disable_coherency();
@@ -267,7 +268,7 @@ static noinline int do_armada_370_xp_cpu_suspend(unsigned long deepidle)
 	dsb();
 
 	wfi();
-	printascii("do_armada_370_xp_cpu_suspend exit wfi\n");
+
 	/* If we are here, wfi failed. As processors run out of
 	 * coherency for some time, tlbs might be stale, so flush them
 	 */
@@ -299,12 +300,9 @@ static noinline void armada_370_xp_pmsu_idle_restore(void)
 {
 	unsigned int hw_cpu = cpu_logical_map(smp_processor_id());
 	u32 reg;
-printascii("armada_370_xp_pmsu_idle_restore 1\n");
 
 	if (pmsu_mp_base == NULL)
 		return;
-
-printascii("armada_370_xp_pmsu_idle_restore 2\n");
 
 	/* cancel ask HW to power down the L2 Cache if possible */
 	reg = readl(pmsu_mp_base + PMSU_CONTROL_AND_CONFIG(hw_cpu));
