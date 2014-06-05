@@ -22,6 +22,7 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/io.h>
+#include <linux/mbus.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/resource.h>
@@ -63,6 +64,14 @@ static void __iomem *pmsu_mp_base;
 #define L2C_NFABRIC_PM_CTL		    0x4
 #define L2C_NFABRIC_PM_CTL_PWR_DOWN		BIT(20)
 
+#define ARMADA_370_CRYPT0_ENG_ID	0x9
+#define CRYPT0_ENG_ATTR	0x1
+
+#define SRAM_PHYS_BASE	    0xFFFF0000
+
+#define BOOTROM_BASE    0xFFF00000
+#define BOOTROM_SIZE    0x100000
+
 extern void ll_disable_coherency(void);
 extern void ll_enable_coherency(void);
 
@@ -83,6 +92,28 @@ void mvebu_pmsu_set_cpu_boot_addr(int hw_cpu, void *boot_addr)
 {
 	writel(virt_to_phys(boot_addr), pmsu_mp_base +
 		PMSU_BOOT_ADDR_REDIRECT_OFFSET(hw_cpu));
+}
+
+extern unsigned char mvebu_boot_wa_start;
+extern unsigned char mvebu_boot_wa_end;
+
+void mvebu_boot_addr_wa(int crypto_eng_id, u32 resume_addr_reg)
+{
+	void __iomem *sram_virt_base;
+	u32 code_len = &mvebu_boot_wa_end - &mvebu_boot_wa_start;
+
+	mvebu_mbus_del_window(BOOTROM_BASE, BOOTROM_SIZE);
+	mvebu_mbus_add_window_by_id(crypto_eng_id, CRYPT0_ENG_ATTR,
+				SRAM_PHYS_BASE, SZ_64K);
+	sram_virt_base = ioremap(SRAM_PHYS_BASE, SZ_64K);
+
+
+	memcpy(sram_virt_base, &mvebu_boot_wa_start, code_len);
+	/*
+	 * The last word of the code copied in SRAM must contain the
+	 * physical base address of the PMSU register
+	 */
+	*(unsigned long *)(sram_virt_base + code_len - 4) = resume_addr_reg;
 }
 
 static int __init armada_370_xp_pmsu_init(void)
