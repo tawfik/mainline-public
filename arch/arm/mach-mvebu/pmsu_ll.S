@@ -23,3 +23,22 @@ ARM_BE8(setend	be )			@ go BE8 if entered LE
 	b	cpu_resume
 ENDPROC(armada_370_xp_cpu_resume)
 
+.global mvebu_boot_wa_start
+.global mvebu_boot_wa_end
+
+/* The following code will be executed from SRAM */
+ENTRY(mvebu_boot_wa_start)
+mvebu_boot_wa_start:
+/* use physical address of the boot address register register */
+	adr     r0, 1f
+	ldr     r0, [r0]
+	ldr     r0, [r0]
+	mov     pc, r0
+/*
+ * the last word of this piece of code will be filled by the physical
+ * address of the boot address register just after being copied in SRAM
+ */
+1:
+	.long   .
+mvebu_boot_wa_end:
+ENDPROC(mvebu_boot_wa_end)

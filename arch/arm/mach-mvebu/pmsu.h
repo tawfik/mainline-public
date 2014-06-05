@@ -12,5 +12,6 @@
 #define __MACH_MVEBU_PMSU_H
 
 int armada_xp_boot_cpu(unsigned int cpu_id, void *phys_addr);
+void mvebu_boot_addr_wa(int crypto_eng_id, unsigned long resume_addr_reg);
 
 #endif	/* __MACH_370_XP_PMSU_H */
