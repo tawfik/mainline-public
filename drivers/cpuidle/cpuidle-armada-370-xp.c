@@ -75,6 +75,11 @@ static int armada_370_xp_cpuidle_probe(struct platform_device *pdev)
 {
 
 	armada_370_xp_cpu_suspend = (void *)(pdev->dev.platform_data);
+
+	if (of_machine_is_compatible("marvell,armada370"))
+		armada_370_xp_idle_driver.states[1].flags |=
+			ARMADA_370_XP_FLAG_DEEP_IDLE;
+
 	return cpuidle_register(&armada_370_xp_idle_driver, NULL);
 }
 
