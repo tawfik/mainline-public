@@ -34,7 +34,6 @@
 #include <asm/tlbflush.h>
 #include "common.h"
 
-static void __iomem *pmsu_mp_base;
 
 #define PMSU_BASE_OFFSET    0x100
 #define PMSU_REG_SIZE	    0x1000
@@ -76,6 +75,9 @@ extern void ll_disable_coherency(void);
 extern void ll_enable_coherency(void);
 
 extern void armada_370_xp_cpu_resume(void);
+
+static unsigned long pmsu_mp_phys_base;
+static void __iomem *pmsu_mp_base;
 
 static struct platform_device armada_xp_cpuidle_device = {
 	.name = "cpuidle-armada-370-xp",
@@ -146,6 +148,8 @@ static int __init armada_370_xp_pmsu_init(void)
 		ret = -EBUSY;
 		goto out;
 	}
+
+	pmsu_mp_phys_base = res.start;
 
 	pmsu_mp_base = ioremap(res.start, resource_size(&res));
 	if (!pmsu_mp_base) {
@@ -311,6 +315,18 @@ int __init armada_370_xp_cpu_pm_init(void)
 	if (!np)
 		return 0;
 	of_node_put(np);
+
+	/*
+	 * On Armada 370, there is "a slow exit process from the deep
+	 * idle state due to heavy L1/L2 cache cleanup operations
+	 * performed by the BootROM software". To avoid this, we
+	 * replace the restart code of the bootrom by a a simple jump
+	 * to the boot address. Then the code located at this boot
+	 * address will take care of the initialization.
+	 */
+	if (!of_machine_is_compatible("marvell,armad370"))
+		mvebu_boot_addr_wa(ARMADA_370_CRYPT0_ENG_ID, pmsu_mp_phys_base +
+				PMSU_BOOT_ADDR_REDIRECT_OFFSET(0));
 
 	armada_370_xp_pmsu_enable_l2_powerdown_onidle();
 	armada_xp_cpuidle_device.dev.platform_data = armada_370_xp_cpu_suspend;
