@@ -302,6 +302,24 @@ static struct notifier_block mvebu_v7_cpu_pm_notifier = {
 
 static bool (*mvebu_v7_cpu_idle_init)(void);
 
+static struct mvebu_v7_cpuidle armada_370_cpuidle = {
+	.mvebu_v7_idle_driver = {
+		.name			= "armada_370_idle",
+		.states[0]		= ARM_CPUIDLE_WFI_STATE,
+		.states[1]		= {
+			.exit_latency		= 100,
+			.power_usage		= 5,
+			.target_residency	= 1000,
+			.flags			= CPUIDLE_FLAG_TIME_VALID |
+			MVEBU_V7_FLAG_DEEP_IDLE,
+			.name			= "Deep Idle",
+			.desc			= "CPU and L2 Fabric power down",
+		},
+		.state_count = 2,
+	},
+	.mvebu_v7_cpu_suspend = armada_xp_370_cpu_suspend,
+};
+
 static struct mvebu_v7_cpuidle armada_xp_cpuidle = {
 	.mvebu_v7_idle_driver = {
 		.name			= "armada_xp_idle",
@@ -328,6 +346,31 @@ static struct mvebu_v7_cpuidle armada_xp_cpuidle = {
 	.mvebu_v7_cpu_suspend = armada_xp_370_cpu_suspend,
 };
 
+static __init bool armada_370_cpuidle_init(void)
+{
+	struct device_node *np;
+
+	np = of_find_compatible_node(NULL, NULL, "marvell,coherency-fabric");
+	if (!np)
+		return false;
+	of_node_put(np);
+
+	/*
+	 * On Armada 370, there is "a slow exit process from the deep
+	 * idle state due to heavy L1/L2 cache cleanup operations
+	 * performed by the BootROM software". To avoid this, we
+	 * replace the restart code of the bootrom by a a simple jump
+	 * to the boot address. Then the code located at this boot
+	 * address will take care of the initialization.
+	 */
+	mvebu_boot_addr_wa(ARMADA_370_CRYPT0_ENG_ID, pmsu_mp_phys_base +
+			PMSU_BOOT_ADDR_REDIRECT_OFFSET(0));
+
+	mvebu_cpu_resume = armada_370_xp_cpu_resume;
+	mvebu_v7_cpuidle_device.dev.platform_data = &armada_370_cpuidle;
+	return true;
+}
+
 static __init bool armada_xp_cpuidle_init(void)
 {
 	struct device_node *np;
@@ -344,6 +387,9 @@ static __init bool armada_xp_cpuidle_init(void)
 static struct of_device_id of_cpuidle_table[] __initdata = {
 	{ .compatible = "marvell,armadaxp",
 	  .data = (void *)armada_xp_cpuidle_init,
+	},
+	{ .compatible = "marvell,armada370",
+	  .data = (void *)armada_370_cpuidle_init,
 	},
 	{ /* end of list */ },
 };
@@ -372,18 +418,6 @@ int __init mvebu_v7_cpu_pm_init(void)
 	if (!np)
 		return 0;
 	of_node_put(np);
-
-	/*
-	 * On Armada 370, there is "a slow exit process from the deep
-	 * idle state due to heavy L1/L2 cache cleanup operations
-	 * performed by the BootROM software". To avoid this, we
-	 * replace the restart code of the bootrom by a a simple jump
-	 * to the boot address. Then the code located at this boot
-	 * address will take care of the initialization.
-	 */
-	if (!of_machine_is_compatible("marvell,armad370"))
-		mvebu_boot_addr_wa(ARMADA_370_CRYPT0_ENG_ID, pmsu_mp_phys_base +
-				PMSU_BOOT_ADDR_REDIRECT_OFFSET(0));
 
 	mvebu_v7_pmsu_enable_l2_powerdown_onidle();
 	platform_device_register(&mvebu_v7_cpuidle_device);
