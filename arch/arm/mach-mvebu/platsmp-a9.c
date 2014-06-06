@@ -23,29 +23,7 @@
 #include "mvebu-soc-id.h"
 #include "pmsu.h"
 
-#define CRYPT0_ENG_ID   41
-#define CRYPT0_ENG_ATTR 0x1
-#define SRAM_PHYS_BASE  0xFFFF0000
-
-#define BOOTROM_BASE    0xFFF00000
-#define BOOTROM_SIZE    0x100000
-
-extern unsigned char armada_375_smp_cpu1_enable_code_end;
-extern unsigned char armada_375_smp_cpu1_enable_code_start;
-
-void armada_375_smp_cpu1_enable_wa(void)
-{
-	void __iomem *sram_virt_base;
-
-	mvebu_mbus_del_window(BOOTROM_BASE, BOOTROM_SIZE);
-	mvebu_mbus_add_window_by_id(CRYPT0_ENG_ID, CRYPT0_ENG_ATTR,
-				SRAM_PHYS_BASE, SZ_64K);
-	sram_virt_base = ioremap(SRAM_PHYS_BASE, SZ_64K);
-
-	memcpy(sram_virt_base, &armada_375_smp_cpu1_enable_code_start,
-	       &armada_375_smp_cpu1_enable_code_end
-	       - &armada_375_smp_cpu1_enable_code_start);
-}
+#define ARMADA_375_CRYPT0_ENG_ID   41
 
 extern void mvebu_cortex_a9_secondary_startup(void);
 
@@ -69,7 +47,8 @@ static int __cpuinit mvebu_cortex_a9_boot_secondary(unsigned int cpu,
 
 		if (mvebu_get_soc_id(&dev, &rev) == 0 &&
 		    rev == ARMADA_375_Z1_REV)
-			armada_375_smp_cpu1_enable_wa();
+				mvebu_boot_addr_wa(ARMADA_375_CRYPT0_ENG_ID,
+					mvebu_system_controller_get_phys_addr());
 
 		mvebu_system_controller_set_cpu_boot_addr(mvebu_cortex_a9_secondary_startup);
 	}
