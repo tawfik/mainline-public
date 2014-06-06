@@ -299,11 +299,12 @@ int __init armada_370_xp_cpu_pm_init(void)
 
 	/*
 	 * Check that all the requirements are available to enable
-	 * cpuidle. So far, it is only supported on Armada XP, cpuidle
-	 * needs the coherency fabric and the PMSU enabled
+	 * cpuidle. So far, it is only supported on Armada 370/XP,
+	 * cpuidle needs the coherency fabric and the PMSU enabled
 	 */
 
-	if (!of_machine_is_compatible("marvell,armadaxp"))
+	if ((!of_machine_is_compatible("marvell,armadaxp")) &&
+		(!of_machine_is_compatible("marvell,armada370")))
 		return 0;
 
 	np = of_find_compatible_node(NULL, NULL, "marvell,coherency-fabric");
