@@ -30,6 +30,7 @@
 #include "common.h"
 
 static void __iomem *system_controller_base;
+static u32 system_controller_phys_base;
 
 struct mvebu_system_controller {
 	u32 rstoutn_mask_offset;
@@ -109,6 +110,13 @@ void mvebu_system_controller_set_cpu_boot_addr(void *boot_addr)
 	writel(virt_to_phys(boot_addr), system_controller_base +
 	       mvebu_sc->resume_boot_addr);
 }
+
+u32 mvebu_system_controller_get_phys_addr(void)
+{
+	BUG_ON(system_controller_phys_base == NULL);
+	BUG_ON(mvebu_sc->resume_boot_addr == 0);
+	return system_controller_phys_base + mvebu_sc->resume_boot_addr;
+}
 #endif
 
 static int __init mvebu_system_controller_init(void)
@@ -119,7 +127,10 @@ static int __init mvebu_system_controller_init(void)
 	np = of_find_matching_node_and_match(NULL, of_system_controller_table,
 					     &match);
 	if (np) {
+		struct resource res;
 		system_controller_base = of_iomap(np, 0);
+		of_address_to_resource(np, 0, &res);
+		system_controller_phys_base = res.start;
 		mvebu_sc = (struct mvebu_system_controller *)match->data;
 		of_node_put(np);
 	}
