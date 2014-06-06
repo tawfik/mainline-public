@@ -28,8 +28,14 @@
 #include <linux/io.h>
 #include <linux/reboot.h>
 #include "common.h"
+#include "mvebu-soc-id.h"
+#include "pmsu.h"
+
+#define CRYPT0_ENG_ATTR	0x1
+#define ARMADA_375_CRYPT0_ENG_ID   41
 
 static void __iomem *system_controller_base;
+static u32 system_controller_phys_base;
 
 struct mvebu_system_controller {
 	u32 rstoutn_mask_offset;
@@ -125,6 +131,20 @@ void mvebu_system_controller_set_cpu_boot_addr(void *boot_addr)
 {
 	BUG_ON(system_controller_base == NULL);
 	BUG_ON(mvebu_sc->resume_boot_addr == 0);
+	if (of_machine_is_compatible("marvell,armada375")) {
+		u32 dev, rev;
+
+		if (mvebu_get_soc_id(&dev, &rev) == 0 &&
+			rev == ARMADA_375_Z1_REV) {
+			phys_addr_t resume_addr_reg;
+
+			resume_addr_reg = system_controller_phys_base +
+				mvebu_sc->resume_boot_addr;
+			mvebu_setup_boot_addr_wa(ARMADA_375_CRYPT0_ENG_ID,
+						CRYPT0_ENG_ATTR,
+						resume_addr_reg);
+		}
+	}
 	writel(virt_to_phys(boot_addr), system_controller_base +
 	       mvebu_sc->resume_boot_addr);
 }
@@ -138,7 +158,10 @@ static int __init mvebu_system_controller_init(void)
 	np = of_find_matching_node_and_match(NULL, of_system_controller_table,
 					     &match);
 	if (np) {
+		struct resource res;
 		system_controller_base = of_iomap(np, 0);
+		of_address_to_resource(np, 0, &res);
+		system_controller_phys_base = res.start;
 		mvebu_sc = (struct mvebu_system_controller *)match->data;
 		of_node_put(np);
 	}
