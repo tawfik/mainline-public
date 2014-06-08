@@ -293,23 +293,47 @@ static struct notifier_block mvebu_v7_cpu_pm_notifier = {
 	.notifier_call = mvebu_v7_cpu_pm_notify,
 };
 
-int __init mvebu_v7_cpu_pm_init(void)
+static bool (*mvebu_v7_cpu_idle_init)(void);
+
+static __init bool armada_xp_cpuidle_init(void)
 {
 	struct device_node *np;
 
-	/*
-	 * Check that all the requirements are available to enable
-	 * cpuidle. So far, it is only supported on Armada XP, cpuidle
-	 * needs the coherency fabric and the PMSU enabled
-	 */
-
-	if (!of_machine_is_compatible("marvell,armadaxp"))
-		return 0;
-
 	np = of_find_compatible_node(NULL, NULL, "marvell,coherency-fabric");
 	if (!np)
-		return 0;
+		return false;
 	of_node_put(np);
+
+	mvebu_v7_cpuidle_device.dev.platform_data = armada_xp_370_cpu_suspend;
+	return true;
+}
+
+static struct of_device_id of_cpuidle_table[] __initdata = {
+	{ .compatible = "marvell,armadaxp",
+	  .data = (void *)armada_xp_cpuidle_init,
+	},
+	{ /* end of list */ },
+};
+
+int __init mvebu_v7_cpu_pm_init(void)
+{
+	struct device_node *np;
+	const struct of_device_id *match;
+
+	np = of_find_matching_node_and_match(NULL, of_cpuidle_table,
+					&match);
+
+
+	/*
+	 * Check that all the requirements are available to enable
+	 * cpuidle. Each SoCs comes with its own requirements and
+	 * configuration
+	 */
+
+	mvebu_v7_cpu_idle_init = match->data;
+
+	if (!mvebu_v7_cpu_idle_init())
+		return 0;
 
 	np = of_find_matching_node(NULL, of_pmsu_table);
 	if (!np)
@@ -329,7 +353,6 @@ int __init mvebu_v7_cpu_pm_init(void)
 				PMSU_BOOT_ADDR_REDIRECT_OFFSET(0));
 
 	mvebu_v7_pmsu_enable_l2_powerdown_onidle();
-	mvebu_v7_cpuidle_device.dev.platform_data = armada_xp_370_cpu_suspend;
 	platform_device_register(&mvebu_v7_cpuidle_device);
 	cpu_pm_register_notifier(&mvebu_v7_cpu_pm_notifier);
 
