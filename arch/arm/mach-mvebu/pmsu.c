@@ -19,15 +19,18 @@
 #define pr_fmt(fmt) "mvebu-pmsu: " fmt
 
 #include <linux/cpu_pm.h>
+#include <linux/cpuidle.h>
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/mbus.h>
+#include <linux/mvebu-v7-cpuidle.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/resource.h>
 #include <linux/smp.h>
 #include <asm/cacheflush.h>
+#include <asm/cpuidle.h>
 #include <asm/cp15.h>
 #include <asm/smp_plat.h>
 #include <asm/suspend.h>
@@ -310,17 +313,42 @@ static struct notifier_block mvebu_v7_cpu_pm_notifier = {
 
 static bool (*mvebu_v7_cpu_idle_init)(void);
 
+static struct mvebu_v7_cpuidle armada_xp_cpuidle = {
+	.mvebu_v7_idle_driver = {
+		.name			= "armada_xp_idle",
+		.states[0]		= ARM_CPUIDLE_WFI_STATE,
+		.states[1]		= {
+			.exit_latency		= 10,
+			.power_usage		= 50,
+			.target_residency	= 100,
+			.flags			= CPUIDLE_FLAG_TIME_VALID,
+			.name			= "Idle",
+			.desc			= "CPU power down",
+		},
+		.states[2]		= {
+			.exit_latency		= 100,
+			.power_usage		= 5,
+			.target_residency	= 1000,
+			.flags			= CPUIDLE_FLAG_TIME_VALID |
+			MVEBU_V7_FLAG_DEEP_IDLE,
+			.name			= "Deep idle",
+			.desc			= "CPU and L2 Fabric power down",
+		},
+		.state_count = 3,
+	},
+	.mvebu_v7_cpu_suspend = armada_370_xp_cpu_suspend,
+};
+
 static __init bool armada_xp_cpuidle_init(void)
 {
 	struct device_node *np;
-
 	np = of_find_compatible_node(NULL, NULL, "marvell,coherency-fabric");
 	if (!np)
 		return false;
 	of_node_put(np);
 
 	mvebu_cpu_resume = armada_370_xp_cpu_resume;
-	mvebu_v7_cpuidle_device.dev.platform_data = armada_370_xp_cpu_suspend;
+	mvebu_v7_cpuidle_device.dev.platform_data = &armada_xp_cpuidle;
 	return true;
 }
 
