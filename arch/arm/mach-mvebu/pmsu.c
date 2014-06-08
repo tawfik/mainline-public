@@ -82,7 +82,7 @@ static void __iomem *pmsu_mp_base;
 static void *mvebu_cpu_resume;
 
 static struct platform_device mvebu_v7_cpuidle_device = {
-	.name = "cpuidle-armada-370-xp",
+	.name = "cpuidle-mvebu-v7",
 };
 
 static struct of_device_id of_pmsu_table[] = {

@@ -1,11 +1,11 @@
 #
 # ARM CPU Idle drivers
 #
-config ARM_ARMADA_370_XP_CPUIDLE
-	bool "CPU Idle Driver for Armada 370/XP family processors"
+config ARM_MVEBU_V7_CPUIDLE
+	bool "CPU Idle Driver for mvebu v7 family processors"
 	depends on ARCH_MVEBU
 	help
-	  Select this to enable cpuidle on Armada 370/XP processors.
+	  Select this to enable cpuidle on Armada 370, 385 and XP processors.
 
 config ARM_BIG_LITTLE_CPUIDLE
 	bool "Support for ARM big.LITTLE processors"
