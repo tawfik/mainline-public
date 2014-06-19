@@ -79,6 +79,8 @@ extern void armada_370_xp_cpu_resume(void);
 static unsigned long pmsu_mp_phys_base;
 static void __iomem *pmsu_mp_base;
 
+static void *mvebu_cpu_resume;
+
 static struct platform_device mvebu_v7_cpuidle_device = {
 	.name = "cpuidle-mvebu-v7",
 };
@@ -281,7 +283,7 @@ static int mvebu_v7_cpu_pm_notify(struct notifier_block *self,
 {
 	if (action == CPU_PM_ENTER) {
 		unsigned int hw_cpu = cpu_logical_map(smp_processor_id());
-		mvebu_pmsu_set_cpu_boot_addr(hw_cpu, armada_370_xp_cpu_resume);
+		mvebu_pmsu_set_cpu_boot_addr(hw_cpu, mvebu_cpu_resume);
 	} else if (action == CPU_PM_EXIT) {
 		mvebu_v7_pmsu_idle_restore();
 	}
@@ -304,6 +306,7 @@ static __init bool armada_xp_cpuidle_init(void)
 		return false;
 	of_node_put(np);
 
+	mvebu_cpu_resume = armada_370_xp_cpu_resume;
 	mvebu_v7_cpuidle_device.dev.platform_data = armada_xp_370_cpu_suspend;
 	return true;
 }
