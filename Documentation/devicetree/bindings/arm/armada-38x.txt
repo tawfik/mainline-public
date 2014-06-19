@@ -6,5 +6,18 @@ following property:
 
 Required root node property:
 
- - compatible: must contain either "marvell,armada380" or
-   "marvell,armada385" depending on the variant of the SoC being used.
+compatible: must contain "marvell,armada38x"
+
+In addition, boards using the Marvell Armada 380 SoC shall have the
+following property:
+
+Required root node property:
+
+compatible: must contain "marvell,armada380"
+
+In addition, boards using the Marvell Armada 385 SoC shall have the
+following property:
+
+Required root node property:
+
+compatible: must contain "marvell,armada385"
