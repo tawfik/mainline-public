@@ -23,6 +23,20 @@ ARM_BE8(setend	be )			@ go BE8 if entered LE
 	b	cpu_resume
 ENDPROC(armada_370_xp_cpu_resume)
 
+ENTRY(armada_38x_cpu_resume)
+	/* do we need it for Armada 38x*/
+ARM_BE8(setend	be )			@ go BE8 if entered LE
+	bl	v7_invalidate_l1
+	mov	r1, #0xf1000000
+	orr	r1, r1, #0xC000
+	mrc	15, 0, r0, cr0, cr0, 5
+	and	r0, r0, #15
+	add	r1, r1, r0
+	mov	r0, #0x0
+	strb	r0, [r1]
+	b	cpu_resume
+ENDPROC(armada_38x_cpu_resume)
+
 .global mvebu_boot_wa_start
 .global mvebu_boot_wa_end
 

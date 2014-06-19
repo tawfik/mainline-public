@@ -32,6 +32,7 @@
 #include <asm/cacheflush.h>
 #include <asm/cpuidle.h>
 #include <asm/cp15.h>
+#include <asm/smp_scu.h>
 #include <asm/smp_plat.h>
 #include <asm/suspend.h>
 #include <asm/tlbflush.h>
@@ -78,9 +79,12 @@ extern void ll_disable_coherency(void);
 extern void ll_enable_coherency(void);
 
 extern void armada_370_xp_cpu_resume(void);
+extern void armada_38x_cpu_resume(void);
 
 static unsigned long pmsu_mp_phys_base;
 static void __iomem *pmsu_mp_base;
+
+static void __iomem *scu_base;
 
 static void *mvebu_cpu_resume;
 
@@ -260,6 +264,27 @@ static int armada_xp_370_cpu_suspend(unsigned long deepidle)
 	return cpu_suspend(deepidle, do_armada_xp_370_cpu_suspend);
 }
 
+static noinline int do_armada_38x_cpu_suspend(unsigned long deepidle)
+{
+	mvebu_v7_pmsu_idle_prepare(deepidle, false);
+	/*
+	 * Already flushed cache, but do it again as the outer cache
+	 * functions dirty the cache with spinlocks
+	 */
+	v7_exit_coherency_flush(louis);
+
+	scu_power_mode(scu_base, SCU_PM_POWEROFF);
+
+	cpu_do_idle();
+
+	return 1;
+}
+
+static int armada_38x_cpu_suspend(unsigned long deepidle)
+{
+	return cpu_suspend(false, do_armada_38x_cpu_suspend);
+}
+
 /* No locking is needed because we only access per-CPU registers */
 static noinline void mvebu_v7_pmsu_idle_restore(void)
 {
@@ -320,6 +345,23 @@ static struct mvebu_v7_cpuidle armada_370_cpuidle = {
 	.mvebu_v7_cpu_suspend = armada_xp_370_cpu_suspend,
 };
 
+static struct mvebu_v7_cpuidle armada_38x_cpuidle = {
+	.mvebu_v7_idle_driver = {
+		.name			= "armada_38x_idle",
+		.states[0]		= ARM_CPUIDLE_WFI_STATE,
+		.states[1]		= {
+			.exit_latency		= 10,
+			.power_usage		= 5,
+			.target_residency	= 100,
+			.flags			= CPUIDLE_FLAG_TIME_VALID,
+			.name			= "Idle",
+			.desc			= "CPU and SCU power down",
+		},
+		.state_count = 2,
+	},
+	.mvebu_v7_cpu_suspend = armada_38x_cpu_suspend,
+};
+
 static struct mvebu_v7_cpuidle armada_xp_cpuidle = {
 	.mvebu_v7_idle_driver = {
 		.name			= "armada_xp_idle",
@@ -371,6 +413,22 @@ static __init bool armada_370_cpuidle_init(void)
 	return true;
 }
 
+static __init bool armada_38x_cpuidle_init(void)
+{
+	struct device_node *np;
+
+	np = of_find_compatible_node(NULL, NULL,
+				"marvell,armada-380-coherency-fabric");
+	if (!np)
+		return false;
+	of_node_put(np);
+
+	scu_base = mvebu_get_scu_base();
+	mvebu_cpu_resume = armada_38x_cpu_resume;
+	mvebu_v7_cpuidle_device.dev.platform_data = &armada_38x_cpuidle;
+	return true;
+}
+
 static __init bool armada_xp_cpuidle_init(void)
 {
 	struct device_node *np;
@@ -390,6 +448,9 @@ static struct of_device_id of_cpuidle_table[] __initdata = {
 	},
 	{ .compatible = "marvell,armada370",
 	  .data = (void *)armada_370_cpuidle_init,
+	},
+	{ .compatible = "marvell,armada38x",
+	  .data = (void *)armada_38x_cpuidle_init,
 	},
 	{ /* end of list */ },
 };
