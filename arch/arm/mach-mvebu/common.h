@@ -25,4 +25,6 @@ void mvebu_system_controller_set_cpu_boot_addr(void *boot_addr);
 
 void armada_xp_cpu_die(unsigned int cpu);
 
+void __iomem *mvebu_get_scu_base(void);
+
 #endif
