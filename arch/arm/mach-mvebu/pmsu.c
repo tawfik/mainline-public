@@ -184,7 +184,7 @@ static void mvebu_v7_pmsu_enable_l2_powerdown_onidle(void)
 }
 
 /* No locking is needed because we only access per-CPU registers */
-static int mvebu_v7_pmsu_idle_prepare(bool deepidle)
+static int mvebu_v7_pmsu_idle_prepare(bool deepidle, bool snoopdis)
 {
 	unsigned int hw_cpu = cpu_logical_map(smp_processor_id());
 	u32 reg;
@@ -215,10 +215,12 @@ static int mvebu_v7_pmsu_idle_prepare(bool deepidle)
 	reg |= PMSU_CONTROL_AND_CONFIG_PWDDN_REQ;
 	writel(reg, pmsu_mp_base + PMSU_CONTROL_AND_CONFIG(hw_cpu));
 
-	/* Disable snoop disable by HW - SW is taking care of it */
-	reg = readl(pmsu_mp_base + PMSU_CPU_POWER_DOWN_CONTROL(hw_cpu));
-	reg |= PMSU_CPU_POWER_DOWN_DIS_SNP_Q_SKIP;
-	writel(reg, pmsu_mp_base + PMSU_CPU_POWER_DOWN_CONTROL(hw_cpu));
+	if (snoopdis) {
+		/* Disable snoop disable by HW - SW is taking care of it */
+		reg = readl(pmsu_mp_base + PMSU_CPU_POWER_DOWN_CONTROL(hw_cpu));
+		reg |= PMSU_CPU_POWER_DOWN_DIS_SNP_Q_SKIP;
+		writel(reg, pmsu_mp_base + PMSU_CPU_POWER_DOWN_CONTROL(hw_cpu));
+	}
 
 	return 0;
 }
@@ -227,7 +229,7 @@ int armada_370_xp_pmsu_idle_enter(unsigned long deepidle)
 {
 	int ret;
 
-	ret = mvebu_v7_pmsu_idle_prepare(deepidle);
+	ret = mvebu_v7_pmsu_idle_prepare(deepidle, true);
 
 	if (ret)
 		return ret;
