@@ -49,12 +49,17 @@
 
 #define DRIVER_DESC "EHCI orion driver"
 
+/* Number of registers to save for suspend/resume */
+#define USB_SAVED_REGS_COUNT    ((USB_IPG - USB_CAUSE) +	\
+				 (USB_PHY_TST_GRP_CTRL - USB_PHY_PWR_CTRL))
+
 #define hcd_to_orion_priv(h) ((struct orion_ehci_hcd *)hcd_to_ehci(h)->priv)
 
 struct orion_ehci_hcd {
 	struct clk *clk;
 	struct phy *phy;
 	enum orion_ehci_phy_ver phy_version;
+	u32 saved_regs[USB_SAVED_REGS_COUNT];
 };
 
 static const char hcd_name[] = "ehci-orion";
@@ -307,6 +312,59 @@ static int ehci_orion_drv_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int ehci_orion_drv_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	struct usb_hcd *hcd = platform_get_drvdata(pdev);
+	struct orion_ehci_hcd *priv = hcd_to_orion_priv(hcd);
+	int off, i;
+
+	for (off = USB_CAUSE, i = 0; off <= USB_IPG; off += 0x4, i++)
+		priv->saved_regs[i] = rdl(off);
+
+	for (off = USB_PHY_PWR_CTRL; off <= USB_PHY_TST_GRP_CTRL; off += 0x4, i++)
+		priv->saved_regs[i] = rdl(off);
+
+	return 0;
+}
+
+static int ehci_orion_drv_resume(struct platform_device *pdev)
+{
+	struct usb_hcd *hcd = platform_get_drvdata(pdev);
+	struct orion_ehci_hcd *priv = hcd_to_orion_priv(hcd);
+	int off, i;
+	u32 reg;
+
+	for (off = USB_CAUSE, i = 0; off <= USB_IPG; off += 0x4, i++)
+		wrl(off, priv->saved_regs[i]);
+
+	for (off = USB_PHY_PWR_CTRL; off <= USB_PHY_TST_GRP_CTRL; off += 0x4, i++)
+		wrl(off, priv->saved_regs[i]);
+
+	/* Clear Interrupt Cause and Mask registers */
+	wrl(USB_CAUSE, 0);
+	wrl(USB_MASK, 0);
+
+	/* Reset controller */
+	wrl(USB_CMD, rdl(USB_CMD) | USB_CMD_RESET);
+	while (rdl(USB_CMD) & USB_CMD_RESET);
+
+	/* Set Mode register (Stop and Reset USB Core before) */
+	/* Stop the controller by clearing USB_CMD_RUN bit */
+	wrl(USB_CMD, rdl(USB_CMD) & ~USB_CMD_RUN);
+
+	/* Reset the controller to get default values */
+	wrl(USB_CMD, rdl(USB_CMD) | USB_CMD_RESET);
+	while (rdl(USB_CMD) & USB_CMD_RESET);
+
+	/* Set USB_MODE register */
+	reg = USB_MODE_HOST;
+	if (priv->phy_version == EHCI_PHY_ORION)
+		reg |= USB_MODE_SDIS;
+	wrl(USB_MODE, reg);
+
+	return 0;
+}
+
 static const struct of_device_id ehci_orion_dt_ids[] = {
 	{ .compatible = "marvell,orion-ehci", },
 	{},
@@ -316,7 +374,11 @@ MODULE_DEVICE_TABLE(of, ehci_orion_dt_ids);
 static struct platform_driver ehci_orion_driver = {
 	.probe		= ehci_orion_drv_probe,
 	.remove		= ehci_orion_drv_remove,
-	.shutdown	= usb_hcd_platform_shutdown,
+	.shutdown       = usb_hcd_platform_shutdown,
+#ifdef CONFIG_PM
+	.suspend        = ehci_orion_drv_suspend,
+	.resume         = ehci_orion_drv_resume,
+#endif
 	.driver = {
 		.name	= "orion-ehci",
 		.of_match_table = ehci_orion_dt_ids,
