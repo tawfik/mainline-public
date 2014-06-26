@@ -176,6 +176,57 @@ try_again:
 	return ret;
 }
 
+/*
+ * Sets all CPUs as sibling if any cpu doesn't have a "clocks" property,
+ * Otherwise it matches "clocks" property to find siblings.
+ */
+static void find_siblings(struct cpufreq_policy *policy)
+{
+	struct private_data *priv = policy->driver_data;
+	struct device *cpu1_dev = priv->cpu_dev, *cpu2_dev;
+	struct device_node *np1, *np2;
+	int cpu, ret, set_all = 1;
+
+	np1 = of_node_get(cpu1_dev->of_node);
+
+	for_each_possible_cpu(cpu) {
+		if (cpu == policy->cpu)
+			continue;
+
+		cpu2_dev = get_cpu_device(cpu);
+		if (!cpu2_dev) {
+			dev_err(cpu1_dev, "%s: failed to cpu_dev for cpu%d\n",
+				__func__, cpu);
+			goto out_set_all;
+		}
+
+		np2 = of_node_get(cpu2_dev->of_node);
+		if (!np2) {
+			dev_err(cpu1_dev, "failed to find cpu%d node\n", cpu);
+			goto out_set_all;
+		}
+
+		ret = of_property_match(np1, np2, "clocks");
+		of_node_put(np2);
+
+		/* Error while parsing nodes, fallback to set-all */
+		if (ret < 0)
+			goto out_set_all;
+		else if (ret == 1)
+			cpumask_set_cpu(cpu, policy->cpus);
+	}
+
+	/* All processors don't share clock and voltage */
+	set_all = 0;
+
+out_set_all:
+	/* All processors share clock and voltage */
+	if (set_all)
+		cpumask_setall(policy->cpus);
+
+	of_node_put(np1);
+}
+
 static int cpu0_cpufreq_init(struct cpufreq_policy *policy)
 {
 	struct cpufreq_frequency_table *freq_table;
@@ -266,9 +317,16 @@ static int cpu0_cpufreq_init(struct cpufreq_policy *policy)
 	policy->driver_data = priv;
 
 	policy->clk = cpu_clk;
-	ret = cpufreq_generic_init(policy, freq_table, transition_latency);
-	if (ret)
+
+	find_siblings(policy);
+	ret = cpufreq_table_validate_and_show(policy, freq_table);
+	if (ret) {
+		dev_err(cpu_dev, "%s: invalid frequency table: %d\n", __func__,
+			ret);
 		goto out_cooling_unregister;
+	}
+
+	policy->cpuinfo.transition_latency = transition_latency;
 
 	return 0;
 
