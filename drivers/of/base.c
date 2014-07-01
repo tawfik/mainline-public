@@ -1490,6 +1490,35 @@ int of_property_count_strings(struct device_node *np, const char *propname)
 }
 EXPORT_SYMBOL_GPL(of_property_count_strings);
 
+/**
+ * of_property_match - Match 'prop' property between two nodes
+ * @np1, np2: Nodes to match for property
+ * @prop_name: property to match
+ *
+ * Returns 1 on match, 0 on no match, and error for missing property.
+ */
+int of_property_match(const struct device_node *np1,
+		      const struct device_node *np2, const char *prop_name)
+{
+	const __be32 *prop1, *prop2;
+	int size1, size2;
+
+	/* Retrieve property from both nodes */
+	prop1 = of_get_property(np1, prop_name, &size1);
+	if (!prop1)
+		return -ENOENT;
+
+	prop2 = of_get_property(np2, prop_name, &size2);
+	if (!prop2)
+		return -ENOENT;
+
+	if (size1 != size2)
+		return 0;
+
+	return !memcmp(prop1, prop2, size1);
+}
+EXPORT_SYMBOL_GPL(of_property_match);
+
 void of_print_phandle_args(const char *msg, const struct of_phandle_args *args)
 {
 	int i;
