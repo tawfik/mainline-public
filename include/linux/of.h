@@ -275,6 +275,9 @@ extern int of_property_match_string(struct device_node *np,
 				    const char *string);
 extern int of_property_count_strings(struct device_node *np,
 				     const char *propname);
+extern int of_property_match(const struct device_node *np1,
+			     const struct device_node *np2,
+			     const char *prop_name);
 extern int of_device_is_compatible(const struct device_node *device,
 				   const char *);
 extern int of_device_is_available(const struct device_node *device);
@@ -494,6 +497,13 @@ static inline int of_property_read_string_index(struct device_node *np,
 
 static inline int of_property_count_strings(struct device_node *np,
 					    const char *propname)
+{
+	return -ENOSYS;
+}
+
+static inline int of_property_match(const struct device_node *np1,
+				    const struct device_node *np2,
+				    const char *prop_name)
 {
 	return -ENOSYS;
 }
