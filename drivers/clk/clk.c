@@ -1525,6 +1525,9 @@ static void clk_change_rate(struct clk *clk)
 	if (!skip_set_rate && clk->ops->set_rate)
 		clk->ops->set_rate(clk->hw, clk->new_rate, best_parent_rate);
 
+	if (clk->notifier_count)
+		__clk_notify(clk, APPLY_RATE_CHANGE, old_rate, clk->new_rate);
+
 	clk->rate = clk_recalc(clk, best_parent_rate);
 
 	if (clk->notifier_count && old_rate != clk->rate)
