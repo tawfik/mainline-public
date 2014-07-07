@@ -39,10 +39,14 @@ struct clk;
  * POST_RATE_CHANGE - called after the clk rate change has successfully
  *     completed.  Callbacks must always return NOTIFY_DONE or NOTIFY_OK.
  *
+ * APPLY_RATE_CHANGE - called right after calling ->set_rate(), but
+ *     before recalculating the rate.
+ *
  */
 #define PRE_RATE_CHANGE			BIT(0)
 #define POST_RATE_CHANGE		BIT(1)
 #define ABORT_RATE_CHANGE		BIT(2)
+#define APPLY_RATE_CHANGE		BIT(3)
 
 /**
  * struct clk_notifier - associate a clk with a notifier
