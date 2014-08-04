@@ -407,6 +407,8 @@ static int __init coherency_late_init(void)
 {
 	int type = coherency_type();
 
+	return 0;
+
 	if (type == COHERENCY_FABRIC_TYPE_NONE)
 		return 0;
 
@@ -429,6 +431,8 @@ postcore_initcall(coherency_late_init);
 #if IS_ENABLED(CONFIG_PCI)
 static int __init coherency_pci_init(void)
 {
+	return 0;
+
 	if (coherency_available())
 		bus_register_notifier(&pci_bus_type,
 				       &mvebu_hwcc_pci_nb);
