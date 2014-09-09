@@ -35,12 +35,14 @@
 		};
 
 		internal-regs {
+		/*
 			L2: l2-cache {
 				compatible = "marvell,aurora-system-cache";
 				reg = <0x08000 0x1000>;
 				cache-id-part = <0x100>;
 				wt-override;
 			};
+		*/
 
 			i2c0: i2c@11000 {
 				compatible = "marvell,mv78230-i2c", "marvell,mv64xxx-i2c";
@@ -93,7 +95,7 @@
 				compatible = "marvell,armadaxp-thermal";
 				reg = <0x182b0 0x4
 					0x184d0 0x4>;
-				status = "okay";
+				status = "disabled";
 			};
 
 			cpuclk: clock-complex@18700 {
@@ -153,7 +155,7 @@
 				reg = <0x60900 0x100
 				       0x60b00 0x100>;
 				clocks = <&gateclk 22>;
-				status = "okay";
+				status = "disabled";
 
 				xor10 {
 					interrupts = <51>;
@@ -173,7 +175,7 @@
 				reg = <0xF0900 0x100
 				       0xF0B00 0x100>;
 				clocks = <&gateclk 28>;
-				status = "okay";
+				status = "disabled";
 
 				xor00 {
 					interrupts = <94>;
