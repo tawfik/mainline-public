@@ -489,7 +489,7 @@ static int __init mvebu_v7_cpu_pm_init(void)
 		return ret;
 
 	mvebu_v7_pmsu_enable_l2_powerdown_onidle();
-	platform_device_register(&mvebu_v7_cpuidle_device);
+	//	platform_device_register(&mvebu_v7_cpuidle_device);
 	cpu_pm_register_notifier(&mvebu_v7_cpu_pm_notifier);
 
 	return 0;
