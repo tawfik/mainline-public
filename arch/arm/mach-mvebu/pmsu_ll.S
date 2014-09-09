@@ -21,8 +21,20 @@ ARM_BE8(setend	be )			@ go BE8 if entered LE
 	mrc	p15, 0, r1, c1, c0, 0
 	bic	r1, #1
 	mcr	p15, 0, r1, c1, c0, 0
+	mov	r0, #0xf1000000
+	add	r0, r0, #0x12000
+	mov	r1, #67
+	strb	r1, [r0]
 	bl	ll_add_cpu_to_smp_group
+	mov	r0, #0xf1000000
+	add	r0, r0, #0x12000
+	mov	r1, #69
+	strb	r1, [r0]
 	bl	ll_enable_coherency
+	mov	r0, #0xf1000000
+	add	r0, r0, #0x12000
+	mov	r1, #70
+	strb	r1, [r0]
 	b	cpu_resume
 ENDPROC(armada_370_xp_cpu_resume)
 

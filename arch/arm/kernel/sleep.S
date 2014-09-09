@@ -126,6 +126,11 @@ ENDPROC(cpu_resume_after_mmu)
 	.data
 	.align
 ENTRY(cpu_resume)
+	mov	r1, #0xf1000000
+	add	r1, r1, #0x12000
+	mov	r2, #71
+	strb	r2, [r1]
+
 ARM_BE8(setend be)			@ ensure we are in BE mode
 #ifdef CONFIG_ARM_VIRT_EXT
 	bl	__hyp_stub_install_secondary
@@ -147,6 +152,11 @@ ARM_BE8(setend be)			@ ensure we are in BE mode
 	adr	r0, _sleep_save_sp
 	ldr	r0, [r0, #SLEEP_SAVE_SP_PHYS]
 	ldr	r0, [r0, r1, lsl #2]
+
+	mov	r1, #0xf1000000
+	add	r1, r1, #0x12000
+	mov	r2, #72
+	strb	r2, [r1]
 
 	@ load phys pgd, stack, resume fn
   ARM(	ldmia	r0!, {r1, sp, pc}	)

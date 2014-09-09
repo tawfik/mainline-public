@@ -30,6 +30,10 @@
  */
 ENTRY(armada_xp_secondary_startup)
  ARM_BE8(setend	be )			@ go BE8 if entered LE
+	mov	r0, #0xf1000000
+	add	r0, r0, #0x12000
+	mov	r1, #65
+	strb	r1, [r0]
 
 	bl	ll_add_cpu_to_smp_group
 
