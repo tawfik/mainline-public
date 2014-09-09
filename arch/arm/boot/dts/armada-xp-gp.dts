@@ -115,7 +115,15 @@
 			serial@12300 {
 				status = "okay";
 			};
+			pinctrl {
+				pinctrl-0 = <&pic_pins>;
+				pinctrl-names = "default";
 
+				pic_pins: pic-pins-0 {
+					marvell,pins = "mpp16", "mpp17", "mpp18";
+					marvell,function = "gpio";
+				};
+			};
 			sata@a0000 {
 				nr-ports = <2>;
 				status = "okay";
