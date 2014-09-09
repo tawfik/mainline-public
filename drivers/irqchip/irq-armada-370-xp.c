@@ -26,6 +26,7 @@
 #include <linux/of_pci.h>
 #include <linux/irqdomain.h>
 #include <linux/slab.h>
+#include <linux/syscore_ops.h>
 #include <linux/msi.h>
 #include <asm/mach/arch.h>
 #include <asm/exception.h>
@@ -66,6 +67,7 @@
 static void __iomem *per_cpu_int_base;
 static void __iomem *main_int_base;
 static struct irq_domain *armada_370_xp_mpic_domain;
+static u32 doorbell_mask_reg;
 #ifdef CONFIG_PCI_MSI
 static struct irq_domain *armada_370_xp_msi_domain;
 static DECLARE_BITMAP(msi_used, PCI_MSI_DOORBELL_NR);
@@ -479,6 +481,52 @@ armada_370_xp_handle_irq(struct pt_regs *regs)
 	} while (1);
 }
 
+static int armada_370_xp_mpic_suspend(void)
+{
+	doorbell_mask_reg = readl(per_cpu_int_base + ARMADA_370_XP_IN_DRBEL_MSK_OFFS);
+	return 0;
+}
+
+static void armada_370_xp_mpic_resume(void)
+{
+	int nirqs;
+	irq_hw_number_t irq;
+
+	/* Re-enable interrupts */
+	nirqs = (readl(main_int_base + ARMADA_370_XP_INT_CONTROL) >> 2) & 0x3ff;
+	for (irq = 0; irq < nirqs; irq++) {
+		int virq = irq_linear_revmap(armada_370_xp_mpic_domain, irq);
+		if (virq == 0)
+			continue;
+
+		pr_info("hwirq %d -> virq %d\n", (int)irq, virq);
+
+		if (irq != ARMADA_370_XP_TIMER0_PER_CPU_IRQ)
+			writel(irq, per_cpu_int_base +
+			       ARMADA_370_XP_INT_CLEAR_MASK_OFFS);
+		else
+			writel(irq, main_int_base + ARMADA_370_XP_INT_SET_ENABLE_OFFS);
+
+		if (!irqd_irq_disabled(irq_get_irq_data(virq)))
+			armada_370_xp_irq_unmask(irq_get_irq_data(virq));
+	}
+
+	/* Reconfigure doorbells for IPIs and MSIs */
+	writel(doorbell_mask_reg,
+	       per_cpu_int_base + ARMADA_370_XP_IN_DRBEL_MSK_OFFS);
+	if (doorbell_mask_reg & IPI_DOORBELL_MASK)
+		writel(0, per_cpu_int_base + ARMADA_370_XP_INT_CLEAR_MASK_OFFS);
+	if (doorbell_mask_reg & PCI_MSI_DOORBELL_MASK)
+		writel(1, per_cpu_int_base + ARMADA_370_XP_INT_CLEAR_MASK_OFFS);
+
+	/* TODO: restore affinity of interrupts */
+}
+
+struct syscore_ops armada_370_xp_mpic_syscore_ops = {
+	.suspend	= armada_370_xp_mpic_suspend,
+	.resume		= armada_370_xp_mpic_resume,
+};
+
 static int __init armada_370_xp_mpic_of_init(struct device_node *node,
 					     struct device_node *parent)
 {
@@ -534,6 +582,8 @@ static int __init armada_370_xp_mpic_of_init(struct device_node *node,
 		irq_set_chained_handler(parent_irq,
 					armada_370_xp_mpic_handle_cascade_irq);
 	}
+
+	register_syscore_ops(&armada_370_xp_mpic_syscore_ops);
 
 	return 0;
 }
