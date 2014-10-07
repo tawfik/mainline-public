@@ -26,12 +26,16 @@
 #include <asm/cacheflush.h>
 #include <asm/smp_plat.h>
 #include "common.h"
-#include "armada-370-xp.h"
 #include "pmsu.h"
 #include "coherency.h"
 
+#define ARMADA_XP_MAX_CPUS 4
+
 #define AXP_BOOTROM_BASE 0xfff00000
 #define AXP_BOOTROM_SIZE 0x100000
+
+/* This function is defined in headsmp.S */
+extern void armada_xp_secondary_startup(void);
 
 static struct clk *__init get_cpu_clk(int cpu)
 {

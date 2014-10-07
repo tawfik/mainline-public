@@ -29,7 +29,6 @@
 #include <asm/mach/map.h>
 #include <asm/mach/time.h>
 #include <asm/smp_scu.h>
-#include "armada-370-xp.h"
 #include "common.h"
 #include "coherency.h"
 #include "mvebu-soc-id.h"
@@ -206,7 +205,6 @@ static const char * const armada_370_xp_dt_compat[] = {
 DT_MACHINE_START(ARMADA_370_XP_DT, "Marvell Armada 370/XP (Device Tree)")
 	.l2c_aux_val	= 0,
 	.l2c_aux_mask	= ~0,
-	.smp		= smp_ops(armada_xp_smp_ops),
 	.init_machine	= mvebu_dt_init,
 	.init_irq       = mvebu_init_irq,
 	.restart	= mvebu_restart,
