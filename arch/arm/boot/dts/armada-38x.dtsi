@@ -30,6 +30,11 @@
 		eth2 = &eth2;
 	};
 
+	pmu {
+		compatible = "arm,cortex-a9-pmu";
+		interrupts-extended = <&mpic 3>;
+	};
+
 	soc {
 		compatible = "marvell,armada380-mbus", "marvell,armada370-mbus",
 			     "simple-bus";
