@@ -179,12 +179,12 @@
 
 			/* Front-side USB slot */
 			usb@50000 {
-				status = "okay";
+				status = "disabled";
 			};
 
 			/* Back-side USB slot */
 			usb@51000 {
-				status = "okay";
+				status = "disabled";
 			};
 
 			spi0: spi@10600 {
