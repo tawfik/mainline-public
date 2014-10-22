@@ -1109,6 +1109,8 @@ int ehci_resume(struct usb_hcd *hcd, bool hibernated)
 {
 	struct ehci_hcd		*ehci = hcd_to_ehci(hcd);
 
+	pr_info("1\n");
+
 	if (time_before(jiffies, ehci->next_statechange))
 		msleep(100);
 
@@ -1118,6 +1120,8 @@ int ehci_resume(struct usb_hcd *hcd, bool hibernated)
 	if (ehci->shutdown)
 		return 0;		/* Controller is dead */
 
+	pr_info("2\n");
+
 	/*
 	 * If CF is still set and we aren't resuming from hibernation
 	 * then we maintained suspend power.
@@ -1126,6 +1130,8 @@ int ehci_resume(struct usb_hcd *hcd, bool hibernated)
 	if (ehci_readl(ehci, &ehci->regs->configured_flag) == FLAG_CF &&
 			!hibernated) {
 		int	mask = INTR_MASK;
+
+		pr_info("3\n");
 
 		ehci_prepare_ports_for_controller_resume(ehci);
 
@@ -1142,6 +1148,8 @@ int ehci_resume(struct usb_hcd *hcd, bool hibernated)
 		return 0;
 	}
 
+	pr_info("4\n");
+
 	/*
 	 * Else reset, to cope with power loss or resume from hibernation
 	 * having let the firmware kick in during reboot.
@@ -1150,9 +1158,13 @@ int ehci_resume(struct usb_hcd *hcd, bool hibernated)
 	(void) ehci_halt(ehci);
 	(void) ehci_reset(ehci);
 
+	pr_info("5\n");
+
 	spin_lock_irq(&ehci->lock);
 	if (ehci->shutdown)
 		goto skip;
+
+	pr_info("6\n");
 
 	ehci_writel(ehci, ehci->command, &ehci->regs->command);
 	ehci_writel(ehci, FLAG_CF, &ehci->regs->configured_flag);
@@ -1160,6 +1172,8 @@ int ehci_resume(struct usb_hcd *hcd, bool hibernated)
 
 	ehci->rh_state = EHCI_RH_SUSPENDED;
 	spin_unlock_irq(&ehci->lock);
+
+	pr_info("7\n");
 
 	return 1;
 }
