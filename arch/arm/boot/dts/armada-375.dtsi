@@ -57,7 +57,7 @@
 
 	pmu {
 		compatible = "arm,cortex-a9-pmu";
-		interrupts-extended = <&mpic 3>;
+		interrupts-extended = <&cpusum 1>;
 	};
 
 	soc {
@@ -360,6 +360,15 @@
 				interrupt-controller;
 				msi-controller;
 				interrupts = <GIC_PPI 15 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
+			cpusum: interrupt-controller@20260 {
+				compatible = "marvell,mpic-cpusum";
+				reg = <0x20260 0x4>;
+				#interrupt-cells = <1>;
+				#size-cells = <1>;
+				interrupt-controller;
+				interrupts-extended = <&mpic 3>;
 			};
 
 			timer@20300 {

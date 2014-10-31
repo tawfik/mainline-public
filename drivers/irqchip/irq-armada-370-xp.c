@@ -38,7 +38,7 @@
 #define ARMADA_370_XP_INT_SET_MASK_OFFS		(0x48)
 #define ARMADA_370_XP_INT_CLEAR_MASK_OFFS	(0x4C)
 #define ARMADA_370_XP_INT_FABRIC_MASK_OFFS	(0x54)
-#define ARMADA_370_XP_INT_CAUSE_PERF(cpu)	(1 << cpu)
+#define ARMADA_370_XP_INT_FABRIC_CAUSE_MASK	(0xc010303)
 
 #define ARMADA_370_XP_INT_CONTROL		(0x00)
 #define ARMADA_370_XP_INT_SET_ENABLE_OFFS	(0x30)
@@ -67,8 +67,10 @@
 #define PCI_MSI_DOORBELL_MASK                   0xFFFF0000
 
 static void __iomem *per_cpu_int_base;
+static void __iomem *per_cpu_fabric_cause;
 static void __iomem *main_int_base;
 static struct irq_domain *armada_370_xp_mpic_domain;
+static struct irq_domain *cpusum_domain;
 #ifdef CONFIG_PCI_MSI
 static struct irq_domain *armada_370_xp_msi_domain;
 static DECLARE_BITMAP(msi_used, PCI_MSI_DOORBELL_NR);
@@ -86,6 +88,93 @@ static inline bool is_percpu_irq(irq_hw_number_t irq)
 		return false;
 	}
 }
+
+static void cpusum_irq_mask(struct irq_data *d)
+{
+	irq_hw_number_t hwirq = irqd_to_hwirq(d);
+	u32 val;
+
+	val = readl(per_cpu_int_base + ARMADA_370_XP_INT_FABRIC_MASK_OFFS);
+	val &= ~(1 << hwirq);
+	writel(val, per_cpu_int_base + ARMADA_370_XP_INT_FABRIC_MASK_OFFS);
+}
+
+static void cpusum_irq_unmask(struct irq_data *d)
+{
+	irq_hw_number_t hwirq = irqd_to_hwirq(d);
+	u32 val;
+
+	val = readl(per_cpu_int_base + ARMADA_370_XP_INT_FABRIC_MASK_OFFS);
+	val |= (1 << hwirq);
+	writel(val, per_cpu_int_base + ARMADA_370_XP_INT_FABRIC_MASK_OFFS);
+}
+
+static struct irq_chip cpusum_irq_chip = {
+	.name		= "cpusum_irq",
+	.irq_unmask	= cpusum_irq_unmask,
+	.irq_mask	= cpusum_irq_mask,
+};
+
+static void cpusum_demux_handle_irq(unsigned int irq, struct irq_desc *desc)
+{
+	struct irq_chip *chip = irq_get_chip(irq);
+	unsigned long irqmap, irqn;
+	unsigned int cascade_irq;
+
+	chained_irq_enter(chip, desc);
+
+	irqmap = readl_relaxed(per_cpu_fabric_cause);
+	irqmap &= ARMADA_370_XP_INT_FABRIC_CAUSE_MASK;
+
+	for_each_set_bit(irqn, &irqmap, BITS_PER_LONG) {
+		cascade_irq = irq_find_mapping(cpusum_domain, irqn);
+		generic_handle_irq(cascade_irq);
+	}
+
+	chained_irq_exit(chip, desc);
+}
+
+static int cpusum_irq_map(struct irq_domain *h, unsigned int virq,
+			  irq_hw_number_t hw)
+{
+	irq_set_status_flags(virq, IRQ_LEVEL);
+
+	irq_set_percpu_devid(virq);
+	irq_set_chip_and_handler(virq, &cpusum_irq_chip,
+				 handle_percpu_devid_irq);
+	set_irq_flags(virq, IRQF_VALID | IRQF_PROBE);
+
+	return 0;
+}
+
+static struct irq_domain_ops cpusum_irq_ops = {
+	.map = cpusum_irq_map,
+	.xlate = irq_domain_xlate_onecell,
+};
+
+static int __init cpusum_demux_init(struct device_node *node,
+				    struct device_node *parent)
+{
+	struct resource fabric_cause_res;
+	int irq;
+
+	BUG_ON(of_address_to_resource(node, 0, &fabric_cause_res));
+	per_cpu_fabric_cause = ioremap(fabric_cause_res.start,
+			resource_size(&fabric_cause_res));
+	BUG_ON(!per_cpu_fabric_cause);
+
+	cpusum_domain = irq_domain_add_linear(node, 32, &cpusum_irq_ops, NULL);
+	BUG_ON(!cpusum_domain);
+
+	irq = irq_of_parse_and_map(node, 0);
+	if (irq > 0)
+		irq_set_chained_handler(irq, cpusum_demux_handle_irq);
+	else
+		return -EINVAL;
+
+	return 0;
+}
+IRQCHIP_DECLARE(cpusum_demux, "marvell,mpic-cpusum", cpusum_demux_init);
 
 static void armada_370_xp_irq_mask(struct irq_data *d)
 {
@@ -301,16 +390,11 @@ static int armada_370_xp_mpic_irq_map(struct irq_domain *h,
 
 static void armada_xp_mpic_smp_cpu_init(void)
 {
-	unsigned long cpuid = cpu_logical_map(smp_processor_id());
 	u32 control;
 	int nr_irqs, i;
 
 	control = readl(main_int_base + ARMADA_370_XP_INT_CONTROL);
 	nr_irqs = (control >> 2) & 0x3ff;
-
-	/* Enable Performance Counter Overflow interrupts */
-	writel(ARMADA_370_XP_INT_CAUSE_PERF(cpuid),
-	       per_cpu_int_base + ARMADA_370_XP_INT_FABRIC_MASK_OFFS);
 
 	for (i = 0; i < nr_irqs; i++)
 		writel(i, per_cpu_int_base + ARMADA_370_XP_INT_SET_MASK_OFFS);
