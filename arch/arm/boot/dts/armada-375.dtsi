@@ -57,7 +57,7 @@
 
 	pmu {
 		compatible = "arm,cortex-a9-pmu";
-		interrupts-extended = <&cpusum 1>;
+		interrupts-extended = <&cpusum 0>, <&cpusum 1>;
 	};
 
 	soc {
