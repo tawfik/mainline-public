@@ -139,9 +139,8 @@ static int cpusum_irq_map(struct irq_domain *h, unsigned int virq,
 {
 	irq_set_status_flags(virq, IRQ_LEVEL);
 
-	irq_set_percpu_devid(virq);
 	irq_set_chip_and_handler(virq, &cpusum_irq_chip,
-				 handle_percpu_devid_irq);
+				 handle_level_irq);
 	set_irq_flags(virq, IRQF_VALID | IRQF_PROBE);
 
 	return 0;
