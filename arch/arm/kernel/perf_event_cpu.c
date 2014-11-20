@@ -126,6 +126,7 @@ static int cpu_pmu_request_irq(struct arm_pmu *cpu_pmu, irq_handler_t handler)
 
 	irq = platform_get_irq(pmu_device, 0);
 	if (irq >= 0 && irq_is_percpu(irq)) {
+		pr_info(" ===> PMU requested as a per-CPU IRQ\n");
 		err = request_percpu_irq(irq, handler, "arm-pmu", &percpu_pmu);
 		if (err) {
 			pr_err("unable to request IRQ%d for ARM PMU counters\n",
@@ -134,6 +135,7 @@ static int cpu_pmu_request_irq(struct arm_pmu *cpu_pmu, irq_handler_t handler)
 		}
 		on_each_cpu(cpu_pmu_enable_percpu_irq, &irq, 1);
 	} else {
+		pr_info(" ===> PMU *NOT* requested as a per-CPU IRQ\n");
 		for (i = 0; i < irqs; ++i) {
 			err = 0;
 			irq = platform_get_irq(pmu_device, i);

@@ -94,6 +94,11 @@ static void cpusum_irq_mask(struct irq_data *d)
 	irq_hw_number_t hwirq = irqd_to_hwirq(d);
 	u32 val;
 
+	if (hwirq == 0) {
+//		pr_info("CPU %d wants to mask\n", smp_processor_id());
+		hwirq = smp_processor_id();
+	}
+
 	val = readl(per_cpu_int_base + ARMADA_370_XP_INT_FABRIC_MASK_OFFS);
 	val &= ~(1 << hwirq);
 	writel(val, per_cpu_int_base + ARMADA_370_XP_INT_FABRIC_MASK_OFFS);
@@ -103,6 +108,11 @@ static void cpusum_irq_unmask(struct irq_data *d)
 {
 	irq_hw_number_t hwirq = irqd_to_hwirq(d);
 	u32 val;
+
+	if (hwirq == 0) {
+//		pr_info("CPU %d wants to unmask\n", smp_processor_id());
+		hwirq = smp_processor_id();
+	}
 
 	val = readl(per_cpu_int_base + ARMADA_370_XP_INT_FABRIC_MASK_OFFS);
 	val |= (1 << hwirq);
@@ -127,6 +137,16 @@ static void cpusum_demux_handle_irq(unsigned int irq, struct irq_desc *desc)
 	irqmap &= ARMADA_370_XP_INT_FABRIC_CAUSE_MASK;
 
 	for_each_set_bit(irqn, &irqmap, BITS_PER_LONG) {
+//		pr_info("CPU %d, got irqn %d\n", smp_processor_id(), irqn);
+		if (smp_processor_id() == 0 && irqn == 1) {
+//			pr_info(" => ignore\n");
+			continue;
+		}
+		if (smp_processor_id() == 1 && irqn == 0) {
+//			pr_info(" => ignore\n");
+			continue;
+		}
+
 		cascade_irq = irq_find_mapping(cpusum_domain, irqn);
 		generic_handle_irq(cascade_irq);
 	}
@@ -138,9 +158,10 @@ static int cpusum_irq_map(struct irq_domain *h, unsigned int virq,
 			  irq_hw_number_t hw)
 {
 	irq_set_status_flags(virq, IRQ_LEVEL);
+	irq_set_percpu_devid(virq);
 
 	irq_set_chip_and_handler(virq, &cpusum_irq_chip,
-				 handle_level_irq);
+				 handle_percpu_devid_irq);
 	set_irq_flags(virq, IRQF_VALID | IRQF_PROBE);
 
 	return 0;

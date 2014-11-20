@@ -305,6 +305,8 @@ static irqreturn_t armpmu_dispatch_irq(int irq, void *dev)
 	int ret;
 	u64 start_clock, finish_clock;
 
+	pr_info("Called on CPU%d\n", smp_processor_id());
+
 	if (irq_is_percpu(irq))
 		dev = *(void **)dev;
 	armpmu = dev;
