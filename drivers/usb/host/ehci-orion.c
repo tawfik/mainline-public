@@ -327,7 +327,8 @@ static int ehci_orion_drv_suspend(struct platform_device *pdev,
 	usb_pwr_ctrl_base = hcd->regs + USB_PHY_PWR_CTRL;
 	BUG_ON(!usb_pwr_ctrl_base);
 	/* Power Down & PLL Power down */
-	writel((readl(usb_pwr_ctrl_base) & ~(BIT(0) | BIT(1))), usb_pwr_ctrl_base);
+//	writel((readl(usb_pwr_ctrl_base) & ~(BIT(0) | BIT(1))), usb_pwr_ctrl_base);
+	writel((readl(usb_pwr_ctrl_base) & ~(BIT(2))), usb_pwr_ctrl_base);
 
 	if (!IS_ERR(priv->phy))
 		phy_power_off(priv->phy);
@@ -338,11 +339,16 @@ static int ehci_orion_drv_suspend(struct platform_device *pdev,
 	return 0;
 }
 
+#define MV_USB_X3_REGS_BASE(addr)           (BIT(11) | (((addr) & 0xF) << 6))
+#define MV_USB_X3_PHY_CHANNEL_REG(dev, reg) (MV_USB_X3_REGS_BASE(dev + 1) | ((reg & 0xF) << 2))
+
 static int ehci_orion_drv_resume(struct platform_device *pdev)
 {
 	struct usb_hcd *hcd = platform_get_drvdata(pdev);
 	struct orion_ehci_hcd *priv = hcd_to_orion_priv(hcd);
 	const struct mbus_dram_target_info *dram;
+	static void __iomem *usb_pwr_ctrl_base;
+	u32 reg;
 
 	pr_info(" ==> %s\n", __func__);
 
@@ -356,9 +362,58 @@ static int ehci_orion_drv_resume(struct platform_device *pdev)
 	if (dram)
 		ehci_orion_conf_mbus_windows(hcd, dram);
 
+	usb_pwr_ctrl_base = hcd->regs + USB_PHY_PWR_CTRL;
+	writel((readl(usb_pwr_ctrl_base) | BIT(2)), usb_pwr_ctrl_base);
+
+	wrl(USB_CAUSE, 0);
+	wrl(USB_MASK, 0);
+
+	reg = rdl(USB_CMD);
+	reg |= BIT(1); /* reset */
+	wrl(USB_CMD, reg);
+	while(rdl(USB_CMD) & BIT(1))
+		cpu_relax();
+
+	/* IPG stuff... */
+	reg = rdl(0x360);
+	reg &= ~(0x7F << 8);
+	reg |= (0xD << 8);
+	wrl(0x360, reg);
+
+	reg = rdl(MV_USB_X3_PHY_CHANNEL_REG(0, 3));
+	reg |= BIT(15);
+	wrl(MV_USB_X3_PHY_CHANNEL_REG(0, 3), reg);
+
+	reg = rdl(MV_USB_X3_PHY_CHANNEL_REG(0, 1));
+	reg |= BIT(12);
+	wrl(MV_USB_X3_PHY_CHANNEL_REG(0, 1), reg);
+
+	udelay(40);
+
+	reg = rdl(MV_USB_X3_PHY_CHANNEL_REG(0, 1));
+	reg &= ~BIT(12);
+	wrl(MV_USB_X3_PHY_CHANNEL_REG(0, 1), reg);
+
+	reg = rdl(USB_CMD);
+	reg &= ~BIT(0); /* clear run */
+	wrl(USB_CMD, reg);
+
+	reg = rdl(USB_CMD);
+	reg |= BIT(1); /* reset */
+	wrl(USB_CMD, reg);
+
+	while(rdl(USB_CMD) & BIT(1))
+		cpu_relax();
+
+	/* Set to host mode */
+	wrl(USB_MODE, 0x3);
+
 	pr_info(" ==> calling ehci_resume\n");
 
 	ehci_resume(hcd, false);
+
+	pr_info(" ==> leaving\n");
+	msleep(500);
 
 	return 0;
 }

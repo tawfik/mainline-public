@@ -179,7 +179,7 @@
 
 			/* Front-side USB slot */
 			usb@50000 {
-				status = "disabled";
+				status = "okay";
 			};
 
 			/* Back-side USB slot */

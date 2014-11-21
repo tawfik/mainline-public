@@ -1121,6 +1121,7 @@ int ehci_resume(struct usb_hcd *hcd, bool hibernated)
 		return 0;		/* Controller is dead */
 
 	pr_info("2\n");
+	msleep(100);
 
 	/*
 	 * If CF is still set and we aren't resuming from hibernation
@@ -1132,23 +1133,38 @@ int ehci_resume(struct usb_hcd *hcd, bool hibernated)
 		int	mask = INTR_MASK;
 
 		pr_info("3\n");
+		msleep(1000);
 
 		ehci_prepare_ports_for_controller_resume(ehci);
+
+		pr_info("3a\n");
+		msleep(1000);
 
 		spin_lock_irq(&ehci->lock);
 		if (ehci->shutdown)
 			goto skip;
 
+		pr_info("3b\n");
+		msleep(1000);
+
 		if (!hcd->self.root_hub->do_remote_wakeup)
 			mask &= ~STS_PCD;
 		ehci_writel(ehci, mask, &ehci->regs->intr_enable);
 		ehci_readl(ehci, &ehci->regs->intr_enable);
- skip:
+skip:
+		pr_info("3c\n");
+		msleep(1000);
+
 		spin_unlock_irq(&ehci->lock);
+
+		pr_info("leaving\n");
+		msleep(1000);
+
 		return 0;
 	}
 
 	pr_info("4\n");
+	msleep(100);
 
 	/*
 	 * Else reset, to cope with power loss or resume from hibernation
@@ -1159,12 +1175,14 @@ int ehci_resume(struct usb_hcd *hcd, bool hibernated)
 	(void) ehci_reset(ehci);
 
 	pr_info("5\n");
+	msleep(100);
 
 	spin_lock_irq(&ehci->lock);
 	if (ehci->shutdown)
 		goto skip;
 
 	pr_info("6\n");
+	msleep(100);
 
 	ehci_writel(ehci, ehci->command, &ehci->regs->command);
 	ehci_writel(ehci, FLAG_CF, &ehci->regs->configured_flag);
@@ -1174,6 +1192,7 @@ int ehci_resume(struct usb_hcd *hcd, bool hibernated)
 	spin_unlock_irq(&ehci->lock);
 
 	pr_info("7\n");
+	msleep(100);
 
 	return 1;
 }
