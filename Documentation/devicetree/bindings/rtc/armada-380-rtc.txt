@@ -1,0 +1,17 @@
+* Real Time Clock of te Armada 38x SoCs
+
+RTC controller for the Armada 38x SoCs
+
+Required properties:
+- compatible : Should be "marvell,armada-380-rtc"
+- reg: physical base address of the controller and length of memory mapped
+  region. The second entires is for the IP configuration part.
+- interrupts: IRQ line for the RTC.
+
+Example:
+
+rtc@184a8 {
+	compatible = "marvell,armada-380-rtc";
+	reg = <0xa3800 0x20>, <0x184a0 0x0c>;
+	interrupts = <GIC_SPI 21 IRQ_TYPE_LEVEL_HIGH>;
+};
