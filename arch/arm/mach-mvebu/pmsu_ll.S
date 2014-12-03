@@ -44,12 +44,44 @@ ARM_BE8(setend	be )			@ go BE8 if entered LE
 ENDPROC(armada_370_xp_cpu_resume)
 
 ENTRY(armada_38x_cpu_resume)
-	/* do we need it for Armada 38x*/
-ARM_BE8(setend	be )			@ go BE8 if entered LE
+
 	bl	v7_invalidate_l1
 	bl	armada_38x_scu_power_up
 	b	cpu_resume
 ENDPROC(armada_38x_cpu_resume)
+
+ENTRY(armada_38x_mem_resume)
+	/* do we need it for Armada 38x*/
+ARM_BE8(setend	be )			@ go BE8 if entered LE
+	/* MMU disable */
+	mrc	p15, 0, r1, c1, c0, 0
+	bic	r1, #1
+	mcr	p15, 0, r1, c1, c0, 0
+
+	/* Restore internal registers Base address @ 0xF1000000 */
+	ldr  r1, =0xf1000000
+ARM_BE8(rev     r1, r1)
+	ldr  r0, =0xD0020080
+	str  r1, [r0]
+
+	/* Update SCU offset CP15 register */
+	ldr  r2, = 0xC000               /* SCU offset = 0xC000 */
+	add  r1, r1, r2                 /* r1 = INTER_REG_BASE + SCU_OFFSET */
+	mcr  p15, 4, r1, c15, c0, 0     /* Write SCU base register */
+
+	/* Enable the SCU, bit 0 in ctrl register (offset 0) */
+	ldr	r2, [r1]
+	orr	r2, r2, #1
+	str	r2, [r1]
+
+	/* Print 'A' to the UART */
+	mov	r0, #0xf1000000
+	add	r0, r0, #0x12000
+	mov	r1, #65
+	strb	r1, [r0]
+
+	b 	armada_38x_cpu_resume
+ENDPROC(armada_38x_mem_resume)
 
 .global mvebu_boot_wa_start
 .global mvebu_boot_wa_end
