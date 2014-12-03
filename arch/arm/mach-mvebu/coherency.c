@@ -36,6 +36,7 @@
 #include "coherency.h"
 #include "mvebu-soc-id.h"
 
+static int coherency_type(void);
 unsigned long coherency_phys_base;
 void __iomem *coherency_base;
 static void __iomem *coherency_cpu_base;
@@ -66,14 +67,19 @@ void ll_add_cpu_to_smp_group(void);
 
 int set_cpu_coherent(void)
 {
-	if (!coherency_base) {
-		pr_warn("Can't make current CPU cache coherent.\n");
-		pr_warn("Coherency fabric is not initialized\n");
-		return 1;
+	int type = coherency_type();
+
+	if (type == COHERENCY_FABRIC_TYPE_ARMADA_370_XP) {
+		if (!coherency_base) {
+			pr_warn("Can't make current CPU cache coherent.\n");
+			pr_warn("Coherency fabric is not initialized\n");
+			return 1;
+		}
+		ll_add_cpu_to_smp_group();
+		return ll_enable_coherency();
 	}
 
-	ll_add_cpu_to_smp_group();
-	return ll_enable_coherency();
+	return 0;
 }
 
 static inline void mvebu_hwcc_sync_io_barrier(void)
