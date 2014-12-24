@@ -1911,12 +1911,16 @@ static int _regulator_enable(struct regulator_dev *rdev)
  */
 int regulator_enable(struct regulator *regulator)
 {
-	struct regulator_dev *rdev = regulator->rdev;
+	struct regulator_dev *rdev;
 	int ret = 0;
+
+	if (!regulator)
+		return 0;
 
 	if (regulator->always_on)
 		return 0;
 
+	rdev = regulator->rdev;
 	if (rdev->supply) {
 		ret = regulator_enable(rdev->supply);
 		if (ret != 0)
@@ -2024,11 +2028,16 @@ static int _regulator_disable(struct regulator_dev *rdev)
  */
 int regulator_disable(struct regulator *regulator)
 {
-	struct regulator_dev *rdev = regulator->rdev;
+	struct regulator_dev *rdev;
 	int ret = 0;
+
+	if (!regulator)
+		return 0;
 
 	if (regulator->always_on)
 		return 0;
+
+	rdev = regulator->rdev;
 
 	mutex_lock(&rdev->mutex);
 	ret = _regulator_disable(rdev);
