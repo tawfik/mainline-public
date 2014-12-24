@@ -40,6 +40,7 @@
 struct device;
 struct notifier_block;
 struct regmap;
+struct device_node;
 
 /*
  * Regulator operating modes.
@@ -162,14 +163,33 @@ struct regulator *__must_check regulator_get(struct device *dev,
 					     const char *id);
 struct regulator *__must_check devm_regulator_get(struct device *dev,
 					     const char *id);
+struct regulator *__must_check of_regulator_get(struct device *dev,
+						const char *id,
+						struct device_node *node);
+struct regulator *__must_check devm_of_regulator_get(struct device *dev,
+						const char *id,
+						struct device_node *node);
 struct regulator *__must_check regulator_get_exclusive(struct device *dev,
 						       const char *id);
 struct regulator *__must_check devm_regulator_get_exclusive(struct device *dev,
 							const char *id);
+struct regulator *__must_check of_regulator_get_exclusive(struct device *dev,
+						      const char *id,
+						      struct device_node *node);
+struct regulator *__must_check devm_of_regulator_get_exclusive(struct device *dev,
+						      const char *id,
+						      struct device_node *node);
 struct regulator *__must_check regulator_get_optional(struct device *dev,
 						      const char *id);
 struct regulator *__must_check devm_regulator_get_optional(struct device *dev,
 							   const char *id);
+struct regulator *__must_check of_regulator_get_optional(struct device *dev,
+						      const char *id,
+						      struct device_node *node);
+struct regulator *__must_check devm_of_regulator_get_optional(struct device *dev,
+						      const char *id,
+						      struct device_node *node);
+
 void regulator_put(struct regulator *regulator);
 void devm_regulator_put(struct regulator *regulator);
 

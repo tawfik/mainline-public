@@ -30,7 +30,9 @@ static void devm_regulator_release(struct device *dev, void *res)
 	regulator_put(*(struct regulator **)res);
 }
 
-static struct regulator *_devm_regulator_get(struct device *dev, const char *id,
+static struct regulator *_devm_regulator_get(struct device *dev,
+					     const char *id,
+					     struct device_node *node,
 					     int get_type)
 {
 	struct regulator **ptr, *regulator;
@@ -41,13 +43,13 @@ static struct regulator *_devm_regulator_get(struct device *dev, const char *id,
 
 	switch (get_type) {
 	case NORMAL_GET:
-		regulator = regulator_get(dev, id);
+		regulator = of_regulator_get(dev, id, node);
 		break;
 	case EXCLUSIVE_GET:
-		regulator = regulator_get_exclusive(dev, id);
+		regulator = of_regulator_get_exclusive(dev, id, node);
 		break;
 	case OPTIONAL_GET:
-		regulator = regulator_get_optional(dev, id);
+		regulator = of_regulator_get_optional(dev, id, node);
 		break;
 	default:
 		regulator = ERR_PTR(-EINVAL);
@@ -74,7 +76,7 @@ static struct regulator *_devm_regulator_get(struct device *dev, const char *id,
  */
 struct regulator *devm_regulator_get(struct device *dev, const char *id)
 {
-	return _devm_regulator_get(dev, id, NORMAL_GET);
+	return _devm_regulator_get(dev, id, NULL, NORMAL_GET);
 }
 EXPORT_SYMBOL_GPL(devm_regulator_get);
 
@@ -90,7 +92,7 @@ EXPORT_SYMBOL_GPL(devm_regulator_get);
 struct regulator *devm_regulator_get_exclusive(struct device *dev,
 					       const char *id)
 {
-	return _devm_regulator_get(dev, id, EXCLUSIVE_GET);
+	return _devm_regulator_get(dev, id, NULL, EXCLUSIVE_GET);
 }
 EXPORT_SYMBOL_GPL(devm_regulator_get_exclusive);
 
@@ -106,9 +108,63 @@ EXPORT_SYMBOL_GPL(devm_regulator_get_exclusive);
 struct regulator *devm_regulator_get_optional(struct device *dev,
 					      const char *id)
 {
-	return _devm_regulator_get(dev, id, OPTIONAL_GET);
+	return _devm_regulator_get(dev, id, NULL, OPTIONAL_GET);
 }
 EXPORT_SYMBOL_GPL(devm_regulator_get_optional);
+
+/**
+ * devm_regulator_get - Resource managed regulator_get()
+ * @dev: device for regulator "consumer"
+ * @node: device node for which to get the regulator
+ * @id: Supply name or regulator ID.
+ *
+ * Managed regulator_get(). Regulators returned from this function are
+ * automatically regulator_put() on driver detach. See regulator_get()
+ * for more information.
+ */
+struct regulator *devm_of_regulator_get(struct device *dev,
+					const char *id,
+					struct device_node *node)
+{
+	return _devm_regulator_get(dev, id, node, NORMAL_GET);
+}
+EXPORT_SYMBOL_GPL(devm_of_regulator_get);
+
+/**
+ * devm_regulator_get_exclusive - Resource managed regulator_get_exclusive()
+ * @dev: device for regulator "consumer"
+ * @node: device node for which to get the regulator
+ * @id: Supply name or regulator ID.
+ *
+ * Managed regulator_get_exclusive(). Regulators returned from this
+ * function are automatically regulator_put() on driver detach. See
+ * regulator_get_exclusive() for more information.
+ */
+struct regulator *devm_of_regulator_get_exclusive(struct device *dev,
+						 const char *id,
+						 struct device_node *node)
+{
+	return _devm_regulator_get(dev, id, node, EXCLUSIVE_GET);
+}
+EXPORT_SYMBOL_GPL(devm_of_regulator_get_exclusive);
+
+/**
+ * devm_regulator_get_optional - Resource managed regulator_get_optional()
+ * @dev: device for regulator "consumer"
+ * @node: device node for which to get the regulator
+ * @id: Supply name or regulator ID.
+ *
+ * Managed regulator_get_optional(). Regulators returned from this
+ * function are automatically regulator_put() on driver detach. See
+ * regulator_get_optional() for more information.
+ */
+struct regulator *devm_of_regulator_get_optional(struct device *dev,
+						 const char *id,
+						 struct device_node *node)
+{
+	return _devm_regulator_get(dev, id, node, OPTIONAL_GET);
+}
+EXPORT_SYMBOL_GPL(devm_of_regulator_get_optional);
 
 static int devm_regulator_match(struct device *dev, void *res, void *data)
 {

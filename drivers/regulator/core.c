@@ -127,26 +127,37 @@ static bool have_full_constraints(void)
 
 /**
  * of_get_regulator - get a regulator device node based on supply name
+ * and on device node if provided
+ *
  * @dev: Device pointer for the consumer (of regulator) device
+ * @np: Device tree node pointer on the node containing the regulator
  * @supply: regulator supply name
  *
  * Extract the regulator device node corresponding to the supply name.
  * returns the device node corresponding to the regulator if found, else
  * returns NULL.
  */
-static struct device_node *of_get_regulator(struct device *dev, const char *supply)
+static struct device_node *of_get_regulator_by_node(struct device *dev,
+						    const char *supply,
+						    struct device_node *np)
 {
 	struct device_node *regnode = NULL;
 	char prop_name[32]; /* 32 is max size of property name */
+	struct device_node *node;
+
+	if (np)
+		node = np;
+	else
+		node = dev->of_node;
 
 	dev_dbg(dev, "Looking up %s-supply from device tree\n", supply);
 
 	snprintf(prop_name, 32, "%s-supply", supply);
-	regnode = of_parse_phandle(dev->of_node, prop_name, 0);
+	regnode = of_parse_phandle(node, prop_name, 0);
 
 	if (!regnode) {
 		dev_dbg(dev, "Looking up %s property in node %s failed",
-				prop_name, dev->of_node->full_name);
+				prop_name, node->full_name);
 		return NULL;
 	}
 	return regnode;
@@ -1268,6 +1279,7 @@ static void regulator_supply_alias(struct device **dev, const char **supply)
 
 static struct regulator_dev *regulator_dev_lookup(struct device *dev,
 						  const char *supply,
+						  struct device_node *np,
 						  int *ret)
 {
 	struct regulator_dev *r;
@@ -1278,8 +1290,8 @@ static struct regulator_dev *regulator_dev_lookup(struct device *dev,
 	regulator_supply_alias(&dev, &supply);
 
 	/* first do a dt based lookup */
-	if (dev && dev->of_node) {
-		node = of_get_regulator(dev, supply);
+	if ((dev && dev->of_node) || np) {
+		node = of_get_regulator_by_node(dev, supply, np);
 		if (node) {
 			list_for_each_entry(r, &regulator_list, list)
 				if (r->dev.parent &&
@@ -1322,6 +1334,7 @@ static struct regulator_dev *regulator_dev_lookup(struct device *dev,
 
 /* Internal regulator request function */
 static struct regulator *_regulator_get(struct device *dev, const char *id,
+					struct device_node *node,
 					bool exclusive, bool allow_dummy)
 {
 	struct regulator_dev *rdev;
@@ -1344,7 +1357,7 @@ static struct regulator *_regulator_get(struct device *dev, const char *id,
 
 	mutex_lock(&regulator_list_mutex);
 
-	rdev = regulator_dev_lookup(dev, id, &ret);
+	rdev = regulator_dev_lookup(dev, id, node, &ret);
 	if (rdev)
 		goto found;
 
@@ -1431,7 +1444,7 @@ out:
  */
 struct regulator *regulator_get(struct device *dev, const char *id)
 {
-	return _regulator_get(dev, id, false, true);
+	return _regulator_get(dev, id, NULL, false, true);
 }
 EXPORT_SYMBOL_GPL(regulator_get);
 
@@ -1458,7 +1471,7 @@ EXPORT_SYMBOL_GPL(regulator_get);
  */
 struct regulator *regulator_get_exclusive(struct device *dev, const char *id)
 {
-	return _regulator_get(dev, id, true, false);
+	return _regulator_get(dev, id, NULL, true, false);
 }
 EXPORT_SYMBOL_GPL(regulator_get_exclusive);
 
@@ -1484,9 +1497,90 @@ EXPORT_SYMBOL_GPL(regulator_get_exclusive);
  */
 struct regulator *regulator_get_optional(struct device *dev, const char *id)
 {
-	return _regulator_get(dev, id, false, false);
+	return _regulator_get(dev, id, NULL, false, false);
 }
 EXPORT_SYMBOL_GPL(regulator_get_optional);
+
+/**
+ * of_regulator_get - lookup and obtain a reference to a regulator.
+ * @dev: device for regulator "consumer"
+ * @node: device node for which to get the regulator
+ * @id: Supply name or regulator ID.
+ *
+ * Returns a struct regulator corresponding to the regulator producer,
+ * or IS_ERR() condition containing errno.
+ *
+ * Use of supply names configured via regulator_set_device_supply() is
+ * strongly encouraged.  It is recommended that the supply name used
+ * should match the name used for the supply and/or the relevant
+ * device pins in the datasheet.
+ */
+struct regulator *of_regulator_get(struct device *dev,
+				   const char *id,
+				struct device_node *node)
+{
+	return _regulator_get(dev, id, node, false, true);
+}
+EXPORT_SYMBOL_GPL(of_regulator_get);
+
+/**
+ * of_regulator_get_exclusive - obtain exclusive access to a regulator.
+ * @dev: device for regulator "consumer"
+ * @node: device node for which to get the regulator
+ * @id: Supply name or regulator ID.
+ *
+ * Returns a struct regulator corresponding to the regulator producer,
+ * or IS_ERR() condition containing errno.  Other consumers will be
+ * unable to obtain this regulator while this reference is held and the
+ * use count for the regulator will be initialised to reflect the current
+ * state of the regulator.
+ *
+ * This is intended for use by consumers which cannot tolerate shared
+ * use of the regulator such as those which need to force the
+ * regulator off for correct operation of the hardware they are
+ * controlling.
+ *
+ * Use of supply names configured via regulator_set_device_supply() is
+ * strongly encouraged.  It is recommended that the supply name used
+ * should match the name used for the supply and/or the relevant
+ * device pins in the datasheet.
+ */
+struct regulator *of_regulator_get_exclusive(struct device *dev,
+					     const char *id,
+					     struct device_node *node)
+{
+	return _regulator_get(dev, id, node, true, false);
+}
+EXPORT_SYMBOL_GPL(of_regulator_get_exclusive);
+
+/**
+ * of_regulator_get_optional - obtain optional access to a regulator.
+ * @dev: device for regulator "consumer"
+ * @node: device node for which to get the regulator
+ * @id: Supply name or regulator ID.
+ *
+ * Returns a struct regulator corresponding to the regulator producer,
+ * or IS_ERR() condition containing errno.
+ *
+ * This is intended for use by consumers for devices which can have
+ * some supplies unconnected in normal use, such as some MMC devices.
+ * It can allow the regulator core to provide stub supplies for other
+ * supplies requested using normal regulator_get() calls without
+ * disrupting the operation of drivers that can handle absent
+ * supplies.
+ *
+ * Use of supply names configured via regulator_set_device_supply() is
+ * strongly encouraged.  It is recommended that the supply name used
+ * should match the name used for the supply and/or the relevant
+ * device pins in the datasheet.
+ */
+struct regulator *of_regulator_get_optional(struct device *dev,
+					    const char *id,
+					    struct device_node *node)
+{
+	return _regulator_get(dev, id, node, false, false);
+}
+EXPORT_SYMBOL_GPL(of_regulator_get_optional);
 
 /* Locks held by regulator_put() */
 static void _regulator_put(struct regulator *regulator)
@@ -3714,7 +3808,7 @@ regulator_register(const struct regulator_desc *regulator_desc,
 	if (supply) {
 		struct regulator_dev *r;
 
-		r = regulator_dev_lookup(dev, supply, &ret);
+		r = regulator_dev_lookup(dev, supply, NULL, &ret);
 
 		if (ret == -ENODEV) {
 			/*
