@@ -69,11 +69,6 @@ ARM_BE8(rev     r1, r1)
 	add  r1, r1, r2                 /* r1 = INTER_REG_BASE + SCU_OFFSET */
 	mcr  p15, 4, r1, c15, c0, 0     /* Write SCU base register */
 
-	/* Enable the SCU, bit 0 in ctrl register (offset 0) */
-	ldr	r2, [r1]
-	orr	r2, r2, #1
-	str	r2, [r1]
-
 	/* Print 'A' to the UART */
 	mov	r0, #0xf1000000
 	add	r0, r0, #0x12000
