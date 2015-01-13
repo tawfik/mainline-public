@@ -47,6 +47,13 @@ ENTRY(armada_38x_cpu_resume)
 
 	bl	v7_invalidate_l1
 	bl	armada_38x_scu_power_up
+
+	/* Print 'C' to the UART */
+	mov	r0, #0xf1000000
+	add	r0, r0, #0x12000
+	mov	r1, #67
+	strb	r1, [r0]
+
 	b	cpu_resume
 ENDPROC(armada_38x_cpu_resume)
 
