@@ -21,6 +21,12 @@
 
 ENTRY(mvebu_cortex_a9_secondary_startup)
 ARM_BE8(setend	be)
+	/* Print one character */
+	mov	r0, #0xf1000000
+	add	r0, r0, #0x12000
+	mov	r1, #66
+	strb	r1, [r0]
+
 	bl      v7_invalidate_l1
 	bl	armada_38x_scu_power_up
 	b	secondary_startup
