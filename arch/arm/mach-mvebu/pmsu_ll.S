@@ -63,6 +63,9 @@ ARM_BE8(setend	be )			@ go BE8 if entered LE
 	/* MMU disable */
 	mrc	p15, 0, r1, c1, c0, 0
 	bic	r1, #1
+#ifdef CONFIG_CPU_DCACHE_DISABLE
+	bic	r1, #(1 << 2)
+#endif
 	mcr	p15, 0, r1, c1, c0, 0
 
 	/* Restore internal registers Base address @ 0xF1000000 */
