@@ -624,6 +624,8 @@ static void l2c310_resume(void)
 	if (!(readl_relaxed(base + L2X0_CTRL) & L2X0_CTRL_EN)) {
 		unsigned revision;
 
+		pr_info("%s: Re-enabling the L2 cache\n", __func__);
+
 		/* restore pl310 setup */
 		writel_relaxed(l2x0_saved_regs.tag_latency,
 			       base + L310_TAG_LATENCY_CTRL);
@@ -645,6 +647,10 @@ static void l2c310_resume(void)
 				      L310_POWER_CTRL);
 
 		l2c_enable(base, l2x0_saved_regs.aux_ctrl, 8);
+
+		pr_info("%s: L2 CTRL = 0x%x, AUXCTRL = 0x%x\n",
+			__func__, readl(base + L2X0_CTRL),
+			readl(base + L2X0_AUX_CTRL));
 
 		/* Re-enable full-line-of-zeros for Cortex-A9 */
 		if (l2x0_saved_regs.aux_ctrl & L310_AUX_CTRL_FULL_LINE_ZERO)
@@ -792,12 +798,18 @@ static void __init l2c310_fixup(void __iomem *base, u32 cache_id,
 
 static void l2c310_disable(void)
 {
+	void __iomem *base = l2x0_base;
+
 	/*
 	 * If full-line-of-zeros is enabled, we must first disable it in the
 	 * Cortex-A9 auxiliary control register before disabling the L2 cache.
 	 */
 	if (l2x0_saved_regs.aux_ctrl & L310_AUX_CTRL_FULL_LINE_ZERO)
 		set_auxcr(get_auxcr() & ~(BIT(3) | BIT(2) | BIT(1)));
+
+	pr_info("%s: L2 CTRL = 0x%x, AUXCTRL = 0x%x\n",
+		__func__, readl(base + L2X0_CTRL),
+		readl(base + L2X0_AUX_CTRL));
 
 	l2c_disable();
 }
