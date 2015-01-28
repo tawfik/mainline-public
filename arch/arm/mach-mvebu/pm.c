@@ -21,6 +21,7 @@
 #include <asm/cacheflush.h>
 #include <asm/outercache.h>
 #include <asm/suspend.h>
+#include <asm/cp15.h>
 
 #include "coherency.h"
 #include "pmsu.h"
@@ -165,6 +166,8 @@ static int mvebu_pm_enter(suspend_state_t state)
 	if (state != PM_SUSPEND_MEM)
 		return -EINVAL;
 
+	pr_info("before: CP15 auxcr = 0x%x\n", get_auxcr());
+
 	cpu_pm_enter();
 
 	mvebu_pm_store_bootinfo();
@@ -181,6 +184,8 @@ static int mvebu_pm_enter(suspend_state_t state)
 	set_cpu_coherent();
 
 	cpu_pm_exit();
+
+	pr_info("after: CP15 auxcr = 0x%x\n", get_auxcr());
 
 	return 0;
 }
