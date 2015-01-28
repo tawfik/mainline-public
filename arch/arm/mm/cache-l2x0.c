@@ -619,6 +619,8 @@ static void l2c310_resume(void)
 {
 	void __iomem *base = l2x0_base;
 
+	l2c_disable();
+
 	if (!(readl_relaxed(base + L2X0_CTRL) & L2X0_CTRL_EN)) {
 		unsigned revision;
 
