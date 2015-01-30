@@ -259,6 +259,8 @@ static int gic_set_wake(struct irq_data *d, unsigned int on)
 #define gic_set_wake	NULL
 #endif
 
+extern int mvebu_after_resume;
+
 static void __exception_irq_entry gic_handle_irq(struct pt_regs *regs)
 {
 	u32 irqstat, irqnr;
@@ -270,6 +272,11 @@ static void __exception_irq_entry gic_handle_irq(struct pt_regs *regs)
 		irqnr = irqstat & GICC_IAR_INT_ID_MASK;
 
 		if (likely(irqnr > 15 && irqnr < 1021)) {
+#if 0
+			if (mvebu_after_resume)
+				pr_info("|| IRQ %d on CPU %d\n", irqnr, smp_processor_id());
+#endif
+
 			handle_domain_irq(gic->domain, irqnr, regs);
 			continue;
 		}

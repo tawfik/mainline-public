@@ -161,6 +161,8 @@ static void mvebu_pm_store_bootinfo(void)
 	writel(BOOT_MAGIC_LIST_END, store_addr);
 }
 
+int mvebu_after_resume = 0;
+
 static int mvebu_pm_enter(suspend_state_t state)
 {
 	if (state != PM_SUSPEND_MEM)
@@ -176,6 +178,8 @@ static int mvebu_pm_enter(suspend_state_t state)
 	outer_disable();
 
 	cpu_suspend(0, mvebu_pm_powerdown);
+
+	mvebu_after_resume = 1;
 
 	outer_resume();
 

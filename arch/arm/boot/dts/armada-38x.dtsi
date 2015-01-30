@@ -106,14 +106,12 @@
 				reg = <0x1400 0x500>;
 			};
 
-			/*
 			L2: cache-controller@8000 {
 				compatible = "arm,pl310-cache";
 				reg = <0x8000 0x1000>;
 				cache-unified;
 				cache-level = <2>;
 			};
-			*/
 
 			scu@c000 {
 				compatible = "arm,cortex-a9-scu";

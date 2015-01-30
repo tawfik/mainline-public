@@ -120,24 +120,25 @@
 			};
 
 			ethernet@30000 {
-				status = "okay";
+				status = "disabled";
 				phy = <&phy0>;
 				phy-mode = "rgmii-id";
 			};
 
 			usb@50000 {
 				vcc-supply = <&reg_usb2_0_vbus>;
-				status = "okay";
+				status = "disabled";
 			};
 
 			ethernet@70000 {
-				status = "okay";
+				status = "disabled";
 				phy = <&phy1>;
 				phy-mode = "rgmii-id";
 			};
 
 
 			mdio@72004 {
+				status = "disabled";
 				phy0: ethernet-phy@0 {
 					reg = <0>;
 				};
