@@ -54,6 +54,7 @@
 struct orion_ehci_hcd {
 	struct clk *clk;
 	struct phy *phy;
+	enum orion_ehci_phy_ver phy_version;
 };
 
 static const char hcd_name[] = "ehci-orion";
@@ -164,7 +165,6 @@ static int ehci_orion_drv_probe(struct platform_device *pdev)
 	struct ehci_hcd *ehci;
 	void __iomem *regs;
 	int irq, err;
-	enum orion_ehci_phy_ver phy_version;
 	struct orion_ehci_hcd *priv;
 
 	if (usb_disabled())
@@ -246,11 +246,11 @@ static int ehci_orion_drv_probe(struct platform_device *pdev)
 	 * setup Orion USB controller.
 	 */
 	if (pdev->dev.of_node)
-		phy_version = EHCI_PHY_NA;
+		priv->phy_version = EHCI_PHY_NA;
 	else
-		phy_version = pd->phy_version;
+		priv->phy_version = pd->phy_version;
 
-	switch (phy_version) {
+	switch (priv->phy_version) {
 	case EHCI_PHY_NA:	/* dont change USB phy settings */
 		break;
 	case EHCI_PHY_ORION:
