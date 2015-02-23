@@ -377,6 +377,17 @@
 			};
 		};
 
+		network-complex {
+			compatible = "marvell,armada-390-pp3";
+			status = "disabled";
+			reg = <MBUS_ID(0xf0, 0x01) 0x70000 0x1000>,    /* A2M Master 0 */
+			      <MBUS_ID(0xf0, 0x01) 0x30000 0x1000>,    /* A2M Master 1 */
+			      <MBUS_ID(0xf0, 0x01) 0x19000 0x1000>,    /* GIC registers */
+			      <MBUS_ID(0x0c, 0x04) 0       0x800000>,  /* NSS IP registers */
+			      <MBUS_ID(0x0c, 0x05) 0       0x8000000>; /* NSS IP space */
+			clocks = <&nssclk>;
+		};
+
 		pcie-controller {
 			compatible = "marvell,armada-370-pcie";
 			status = "disabled";
@@ -489,6 +500,12 @@
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
 			clock-frequency = <2000000000>;
+		};
+
+		nssclk: nssclk {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <250000000>;
 		};
 	};
 };
