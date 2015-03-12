@@ -506,6 +506,7 @@ __fixup_smp:
 	@ below address check will need to be #ifdef'd or equivalent
 	@ for the Aegis platform.
 	mrc	p15, 4, r0, c15, c0	@ get SCU base address
+	ldr	r0, =0xf100c000
 	teq	r0, #0x0		@ '0' on actual UP A9 hardware
 	beq	__fixup_smp_on_up	@ So its an A9 UP
 	ldr	r0, [r0, #4]		@ read SCU Config
