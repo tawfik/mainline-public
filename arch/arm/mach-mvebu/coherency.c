@@ -32,6 +32,7 @@
 #include <linux/pci.h>
 #include <asm/smp_plat.h>
 #include <asm/cacheflush.h>
+#include <asm/dma-mapping.h>
 #include <asm/mach/map.h>
 #include "coherency.h"
 #include "mvebu-soc-id.h"
@@ -109,8 +110,8 @@ static void mvebu_hwcc_dma_sync(struct device *dev, dma_addr_t dma_handle,
 }
 
 static struct dma_map_ops mvebu_hwcc_dma_ops = {
-	.alloc			= arm_dma_alloc,
-	.free			= arm_dma_free,
+	.alloc			= arm_coherent_dma_alloc,
+	.free			= arm_coherent_dma_free,
 	.mmap			= arm_dma_mmap,
 	.map_page		= mvebu_hwcc_dma_map_page,
 	.unmap_page		= mvebu_hwcc_dma_unmap_page,
